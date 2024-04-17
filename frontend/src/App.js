@@ -1,20 +1,24 @@
 import './App.css';
-import React, { useEffect, useState } from 'react';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route
+} from "react-router-dom";
+
+import Navbar from './component/navbar';
+import Finder from './pages/finder';
 
 function App() {
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    fetch('http://localhost:8080/')
-      .then(response => response.text())
-      .then(message => {
-        setMessage(message);
-      });
-  }, []);
   return (
-    <h1 className="text-3xl font-bold underline">
-      {message}
-    </h1>
+    <Router>
+      <Navbar/>
+      <Routes>
+        <Route path='/' element={<Finder/>}>
+
+        </Route>
+      </Routes>
+    </Router>
+
   );
 }
 
