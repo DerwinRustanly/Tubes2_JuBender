@@ -127,7 +127,7 @@ export default function Finder() {
                 placeholder={"Source"}
               />
               {isSrcTyping && sourceSuggestions.length > 0 && (
-                <div className="absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
+                <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
                   <span className="px-8 mb-3">Recommendation</span>
                   {sourceSuggestions.map((suggestion, index) => (
                     <div className="hover:bg-6 px-8 py-1">
@@ -153,7 +153,7 @@ export default function Finder() {
                 placeholder={"Destination"}
               />
               {isDestTyping && destSuggestions.length > 0 && (
-                <div className="absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
+                <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
                   <span className="px-8 mb-3">Recommendation</span>
                   {destSuggestions.map((suggestion, index) => (
                     <div className="hover:bg-6 px-8 py-1">
