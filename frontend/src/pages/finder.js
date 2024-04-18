@@ -1,15 +1,105 @@
 import { useState } from "react";
 import swtch from "../assets/switch.svg";
 
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 export default function Finder() {
+
+  
   const [algo, setAlgo] = useState("BFS")
   const [source, setSource] = useState("")
   const [dest, setDest] = useState("")
+  const [sourceSuggestions, setSourceSuggestions] = useState([]);
+  const [destSuggestions, setDestSuggestions] = useState([]);
+  const [isSrcTyping, setIsSrcTyping] = useState(false);
+  const [isDestTyping, setIsDestTyping] = useState(false);
   const handleSwitch = () => {
     let temp = source;
     setSource(dest);
     setDest(temp);
   }
+
+  const selectSourceSuggest = (value) => {
+    setSource(value);
+    setIsSrcTyping(false);
+  }
+
+  const selectDestSuggest = (value) => {
+    setDest(value);
+    setIsDestTyping(false);
+  }
+
+  // Function to update destination and its suggestions
+
+  const handleSourceChange = (e) => {
+    const value = e.target.value;
+    setSource(value);
+    
+    if (value.length === 0) {
+      setIsSrcTyping(false); // Immediately indicate that typing has stopped
+      setSourceSuggestions([]); // Clear suggestions immediately
+    } else {
+      setIsSrcTyping(true); // Indicate that user is typing
+      fetchSourceSuggestions(value); // Fetch suggestions with debouncing
+    }
+  };
+
+  const fetchSourceSuggestions = debounce((value) => {
+     // Update state to indicate typing has stopped
+    if (value.length > 0) {
+      fetch('http://localhost:8080/api/search?query=' + encodeURI(value))
+        .then(response => response.json())
+        .then(data => {
+          if (data.recommendations) {
+            setSourceSuggestions(data.recommendations);
+          }
+        })
+        .catch(error => console.error('Error fetching source recommendations:', error));
+    } else {
+      setSourceSuggestions([]);
+    }
+  }, 300); 
+
+  const fetchDestSuggestions = debounce((value) => {
+    // Update state to indicate typing has stopped
+   if (value.length > 0) {
+     fetch('http://localhost:8080/api/search?query=' + encodeURI(value))
+       .then(response => response.json())
+       .then(data => {
+         if (data.recommendations) {
+           setDestSuggestions(data.recommendations);
+         }
+       })
+       .catch(error => console.error('Error fetching Dest recommendations:', error));
+   } else {
+     setDestSuggestions([]);
+   }
+ }, 300); 
+
+  const handleDestChange = (e) => {
+    const value = e.target.value;
+    setDest(value);
+    
+    if (value.length === 0) {
+      setIsDestTyping(false); // Immediately indicate that typing has stopped
+      setDestSuggestions([]); // Clear suggestions immediately
+    } else {
+      setIsDestTyping(true); // Indicate that user is typing
+      fetchDestSuggestions(value); // Fetch suggestions with debouncing
+    }
+  };
+
+  
   return (
     <div className="w-full min-h-screen flex flex-col justify-center text-white items-center">
       <div>
@@ -31,24 +121,50 @@ export default function Finder() {
             <form action="">
               <input
                 type="text"
-                className="text-2xl font-bold border-none outline-none bg-transparent placeholder-3"
+                className="text-2xl text-white font-bold border-none outline-none bg-transparent placeholder-3"
                 value={source}
-                onChange={(e)=>setSource(e.target.value)}
+                onChange={handleSourceChange}
                 placeholder={"Source"}
               />
+              {isSrcTyping && sourceSuggestions.length > 0 && (
+                <div className="absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
+                  <span className="px-8 mb-3">Recommendation</span>
+                  {sourceSuggestions.map((suggestion, index) => (
+                    <div className="hover:bg-6 px-8 py-1">
+                      <div key={index} className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectSourceSuggest(suggestion)}>
+                        {suggestion}
+                      </div>
+                      <span className="text-sm break-words">en.wikipedia.org/wiki/{suggestion.replace(/ /g, "_")}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </form>
-            <span className="text-sm">en.wikipedia.org/wiki/{source.replace(/ /g, "_")}</span>
+            <span className="text-sm ">en.wikipedia.org/wiki/{source.replace(/ /g, "_")}</span>
           </div>
-          <div className="flex flex-col justify-center text-3 mb-2 py-4 px-8 bg-2 rounded-xl">
+          <div className="relative flex flex-col justify-center text-3 mb-2 py-4 px-8 bg-2 rounded-xl">
             <span>To</span>
             <form action="">
               <input
                 type="text"
-                className="text-2xl font-bold border-none outline-none bg-transparent placeholder-3"
+                className="text-2xl text-white font-bold border-none outline-none bg-transparent placeholder-3"
                 value = {dest}
-                onChange={(e)=>setDest(e.target.value)}
+                onChange={handleDestChange}
                 placeholder={"Destination"}
               />
+              {isDestTyping && destSuggestions.length > 0 && (
+                <div className="absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
+                  <span className="px-8 mb-3">Recommendation</span>
+                  {destSuggestions.map((suggestion, index) => (
+                    <div className="hover:bg-6 px-8 py-1">
+                      <div key={index} className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectDestSuggest(suggestion)}>
+                        {suggestion}
+                      </div>
+                      <span className="text-sm">en.wikipedia.org/wiki/{suggestion.replace(/ /g, "_")}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </form>
             <span className="text-sm">en.wikipedia.org/wiki/{dest.replace(/ /g, "_")}</span>
           </div>
