@@ -23,6 +23,8 @@ export default function Finder() {
   const [destSuggestions, setDestSuggestions] = useState([]);
   const [isSrcTyping, setIsSrcTyping] = useState(false);
   const [isDestTyping, setIsDestTyping] = useState(false);
+  const [noExactMatchSrc, setNoExactMatchSrc] = useState(false);
+  const [noExactMatchDest, setNoExactMatchDest] = useState(false);
   const handleSwitch = () => {
     let temp = source;
     setSource(dest);
@@ -61,7 +63,14 @@ export default function Finder() {
         .then(response => response.json())
         .then(data => {
           if (data.recommendations) {
-            setSourceSuggestions(data.recommendations);
+            const filteredRecommendations = data.recommendations.filter(rec =>
+              rec.toLowerCase().includes(value.toLowerCase())
+            );
+            setSourceSuggestions(filteredRecommendations);
+            setNoExactMatchSrc(!filteredRecommendations.includes(value));
+          }else{
+            setSourceSuggestions([]);
+            setNoExactMatchSrc(true);
           }
         })
         .catch(error => console.error('Error fetching source recommendations:', error));
@@ -76,9 +85,16 @@ export default function Finder() {
      fetch('http://localhost:8080/api/search?query=' + encodeURI(value))
        .then(response => response.json())
        .then(data => {
-         if (data.recommendations) {
-           setDestSuggestions(data.recommendations);
-         }
+        if (data.recommendations) {
+          const filteredRecommendations = data.recommendations.filter(rec =>
+            rec.toLowerCase().includes(value.toLowerCase())
+          );
+          setDestSuggestions(filteredRecommendations);
+          setNoExactMatchDest(!filteredRecommendations.includes(value));
+        }else{
+          setDestSuggestions([]);
+          setNoExactMatchDest(true);
+        }
        })
        .catch(error => console.error('Error fetching Dest recommendations:', error));
    } else {
@@ -129,6 +145,12 @@ export default function Finder() {
               {isSrcTyping && sourceSuggestions.length > 0 && (
                 <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
                   <span className="px-8 mb-3">Recommendation</span>
+                  {noExactMatchSrc && <div className="hover:bg-6 px-8 py-1">
+                      <div className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectSourceSuggest(source)}>
+                        {source}
+                      </div>
+                      <span className="text-sm break-words">en.wikipedia.org/wiki/{source.replace(/ /g, "_")}</span>
+                    </div>}
                   {sourceSuggestions.map((suggestion, index) => (
                     <div className="hover:bg-6 px-8 py-1">
                       <div key={index} className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectSourceSuggest(suggestion)}>
@@ -155,6 +177,12 @@ export default function Finder() {
               {isDestTyping && destSuggestions.length > 0 && (
                 <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
                   <span className="px-8 mb-3">Recommendation</span>
+                  {noExactMatchDest && <div className="hover:bg-6 px-8 py-1">
+                      <div className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectDestSuggest(dest)}>
+                        {dest}
+                      </div>
+                      <span className="text-sm break-words">en.wikipedia.org/wiki/{source.replace(/ /g, "_")}</span>
+                    </div>}
                   {destSuggestions.map((suggestion, index) => (
                     <div className="hover:bg-6 px-8 py-1">
                       <div key={index} className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectDestSuggest(suggestion)}>
