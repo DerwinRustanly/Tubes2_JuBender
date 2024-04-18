@@ -16,10 +16,10 @@ export default function Finder() {
         <div className="flex justify-between items-center gap-8">
           <span className="font-bold text-lg">Search Algorithm</span>
           <div className="flex gap-2">
-            <button onClick={()=>setAlgo("BFS")} className="hover:bg-2 rounded-xl px-4 py-1 focus:bg-2 font-bold">
+            <button onClick={()=>setAlgo("BFS")} className={`hover:bg-2 rounded-xl px-4 py-1 focus:bg-2 font-bold ${algo === "BFS"? "bg-2":"bg-1 text-3"}`}>
               BFS
             </button>
-            <button onClick={()=>setAlgo("DFS")} className="hover:bg-2 rounded-xl px-4 py-1 focus:bg-2 font-bold">
+            <button onClick={()=>setAlgo("IDS")} className={`hover:bg-2 rounded-xl px-4 py-1 focus:bg-2 font-bold ${algo === "IDS"? "bg-2":"bg-1 text-3"}`}>
               IDS
             </button>
           </div>
