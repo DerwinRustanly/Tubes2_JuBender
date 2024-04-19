@@ -13,6 +13,19 @@ function debounce(func, wait) {
   };
 }
 
+const dummyPaths = [
+  {
+    id: 1,
+    
+    path: ["Source", "Indonesia", "Padang", "Destination" , "Lorem ipsum" , "Godzilla King of KONG" , "Darwin Rustanly" , "Bernardo"],
+  },
+  {
+    id: 2,
+    path: ["Source" , "Bitcoin" , "Ben10" , "Destination"],
+  },
+  // Add more dummy paths as needed
+];
+
 export default function Finder() {
 
   
@@ -117,10 +130,10 @@ export default function Finder() {
 
   
   return (
-    <div className="w-full min-h-screen flex flex-col justify-center text-white items-center">
-      <div>
+    <div className="w-full min-h-screen flex flex-col  text-white items-center">
+      <div className="w-[577px] font-inter my-60">
         <div className="flex justify-between items-center gap-8">
-          <span className="font-bold text-lg">Search Algorithm</span>
+          <span className="font-bold text-2xl">Search Algorithm</span>
           <div className="flex gap-2">
             <button onClick={()=>setAlgo("BFS")} className={`hover:bg-2 rounded-xl px-4 py-1 focus:bg-2 font-bold ${algo === "BFS"? "bg-2":"bg-1 text-3"}`}>
               BFS
@@ -130,9 +143,9 @@ export default function Finder() {
             </button>
           </div>
         </div>
-        <div>
+        <div className="relative">
           <img alt="" width={40} onClick={handleSwitch} src={swtch} className="hover:scale-105 cursor-pointer border-1 border-[6px] rounded-xl bg-2 absolute z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></img>
-          <div className="relative flex flex-col justify-center text-3 mt-4 mb-2 py-4 px-8 bg-2 rounded-xl">
+          <div className="relative flex flex-col justify-center text-3 mt-4 mb-2 py-4 px-8 bg-2 rounded-xl gap-2">
             <span>From</span>
             <form action="">
               <input
@@ -143,7 +156,7 @@ export default function Finder() {
                 placeholder={"Source"}
               />
               {isSrcTyping && sourceSuggestions.length > 0 && (
-                <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
+                <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-2 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-80">
                   <span className="px-8 mb-3">Recommendation</span>
                   {noExactMatchSrc && <div className="hover:bg-6 px-8 py-1">
                       <div className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectSourceSuggest(source)}>
@@ -164,7 +177,7 @@ export default function Finder() {
             </form>
             <span className="text-sm ">en.wikipedia.org/wiki/{source.replace(/ /g, "_")}</span>
           </div>
-          <div className="relative flex flex-col justify-center text-3 mb-2 py-4 px-8 bg-2 rounded-xl">
+          <div className="relative flex flex-col justify-center text-3 mb-2 py-4 px-8 bg-2 rounded-xl gap-2">
             <span>To</span>
             <form action="">
               <input
@@ -175,7 +188,7 @@ export default function Finder() {
                 placeholder={"Destination"}
               />
               {isDestTyping && destSuggestions.length > 0 && (
-                <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-5 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-60">
+                <div className="hide-scrollbar absolute flex flex-col text-3 mb-2 py-4 bg-2 rounded-b-xl left-0 right-0 mt-2 z-20 border-t-2 border-white border-solid overflow-y-auto max-h-80">
                   <span className="px-8 mb-3">Recommendation</span>
                   {noExactMatchDest && <div className="hover:bg-6 px-8 py-1">
                       <div className="cursor-pointer text-2xl font-bold border-none outline-none bg-transparent text-white" onClick={() => selectDestSuggest(dest)}>
@@ -200,7 +213,52 @@ export default function Finder() {
         <button className="bg-4 w-full text-5 flex justify-center px-4 py-2 rounded-xl font-bold">
           Search Path
         </button>
+        
+        <div className="w-full flex flex-col gap-2 text-lg font-bold text-white mt-3 px-1">
+            <span>Found x paths with depth of y</span>
+            <div className="w-full flex flex-row justify-between items-center">
+                <div className="text-3">Algorithm</div>
+                <div>{algo}</div>
+            </div>
+            <div className="w-full flex flex-row justify-between items-center">
+                <div  className="text-3">From</div>
+                <div>{source}</div>
+            </div>
+            <div className="w-full flex flex-row justify-between items-center">
+                <div className="text-3">To</div>
+                <div>{dest}</div>
+            </div>
+            <div className="w-full flex flex-row justify-between items-center">
+                <div className="text-3">Duration(ms)</div>
+                <div>1000</div>
+            </div>
+        </div>
+
+        <div className="w-full h-96 rounded-xl bg-white mt-4">
+
+        </div>
+
+        <div className="mt-8 w-full">
+          <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
+          <div className="w-full pt-4 flex flex-col gap-2">
+            {dummyPaths.map((item) => (
+              <div key={item.id} className="w-full flex flex-row items-center mb-2 gap-4">
+                <div className="flex justify-center items-center text-5 bg-4 py-4 px-6 text-center rounded-xl">
+                  <span className="text-xl font-bold">{item.id}</span>
+                </div>
+                <div className="break-all text-3 text-lg">
+                  {item.path.join(' → ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
       </div>
+            
+      
+
+      
     </div>
   );
 }
