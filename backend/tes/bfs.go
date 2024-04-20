@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"github.com/gocolly/colly/v2"
 	"strings"
 	"sync"
@@ -32,13 +33,23 @@ func findShortestPath(startURL, endURL string) ([]string, bool) {
 
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
 		link := e.Request.AbsoluteURL(e.Attr("href"))
-		if strings.Contains(link, "wikipedia.org/wiki") && !found {
+		
+		// Parse the URL to check the path specifically
+		parsedURL, err := url.Parse(link)
+		if err != nil {
+			fmt.Println("Error parsing URL:", err)
+			return
+		}
+		
+		// Now, we can check if the path contains ":" and proceed only if it does not
+		// This ensures we are filtering based on the path part of the URL, not the protocol part
+		if strings.Contains(parsedURL.Host, "wikipedia.org") && !strings.Contains(parsedURL.Path, ":") && !found {
 			if _, ok := visited[link]; !ok {
 				visited[link] = struct{}{}
 				pathMutex.Lock()
-				pathMap[link] = e.Request.URL.String()
+				pathMap[link] = e.Request.URL.String() // Map the current link back to the page that led to it
 				pathMutex.Unlock()
-				enqueueURL(&queue, link, &queueMutex)
+				enqueueURL(&queue, link, &queueMutex) // Add the link to the queue for further exploration
 			}
 			if link == endURL {
 				found = true
@@ -71,7 +82,7 @@ func findShortestPath(startURL, endURL string) ([]string, bool) {
 
 func main() {
 	startURL := "https://en.wikipedia.org/wiki/KFC"
-	endURL := "https://en.wikipedia.org/wiki/Joko_Widodo"
+	endURL := "https://en.wikipedia.org/wiki/Indonesia"
 
 	// Start the timer
 	startTime := time.Now()
