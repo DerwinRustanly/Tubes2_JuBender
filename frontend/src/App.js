@@ -7,6 +7,7 @@ import {
 
 import Navbar from './component/navbar';
 import Finder from './pages/finder';
+import About from './pages/about';
 
 function App() {
   return (
@@ -14,8 +15,8 @@ function App() {
       <Navbar/>
       <Routes>
         <Route path='/' element={<Finder/>}>
-
         </Route>
+        <Route path='/about' element={<About/>}></Route>
       </Routes>
     </Router>
 
