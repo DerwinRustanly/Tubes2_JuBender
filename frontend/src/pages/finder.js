@@ -319,7 +319,27 @@ export default function Finder() {
       fetchDestSuggestions(value); // Fetch suggestions with debouncing
     }
   };
-
+  const handleSearch = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/result/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          algorithm: algo,
+          source: "en.wikipedia.org/wiki/"+source.replace(/ /g, "_"),
+          destination: "en.wikipedia.org/wiki/"+dest.replace(/ /g, "_")
+        })
+      });
+      const data = await response.json();
+      // Handle the response data here, e.g., setting state to display the results
+      console.log(data);
+    } catch (error) {
+      console.error('Error during search:', error);
+    }
+  };
+  
   useEffect(() => {
     if (!graphContainerRef.current) {
       return;
@@ -424,7 +444,7 @@ export default function Finder() {
             <span className="text-sm">en.wikipedia.org/wiki/{dest.replace(/ /g, "_")}</span>
           </div>
         </div>
-        <button className="bg-4 w-full text-5 flex justify-center px-4 py-2 rounded-xl font-bold">
+        <button className="bg-4 w-full text-5 flex justify-center px-4 py-2 rounded-xl font-bold" onClick={handleSearch}>
           Search Path
         </button>
         
