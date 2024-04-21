@@ -319,17 +319,35 @@ export default function Finder() {
       fetchDestSuggestions(value); // Fetch suggestions with debouncing
     }
   };
-  const handleSearch = async () => {
+  const handleSearchBFS = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/result/search`, {
+      const response = await fetch(`http://localhost:8080/bfs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          algorithm: algo,
-          source: "en.wikipedia.org/wiki/"+source.replace(/ /g, "_"),
-          destination: "en.wikipedia.org/wiki/"+dest.replace(/ /g, "_")
+          source: source.replace(/ /g, "_"),
+          destination: dest.replace(/ /g, "_")
+        })
+      });
+      const data = await response.json();
+      // Handle the response data here, e.g., setting state to display the results
+      console.log(data);
+    } catch (error) {
+      console.error('Error during search:', error);
+    }
+  };
+  const handleSearchIDS = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/ids`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          source: source.replace(/ /g, "_"),
+          destination: dest.replace(/ /g, "_")
         })
       });
       const data = await response.json();
@@ -444,7 +462,7 @@ export default function Finder() {
             <span className="text-sm">en.wikipedia.org/wiki/{dest.replace(/ /g, "_")}</span>
           </div>
         </div>
-        <button className="bg-4 w-full text-5 flex justify-center px-4 py-2 rounded-xl font-bold" onClick={handleSearch}>
+        <button className="bg-4 w-full text-5 flex justify-center px-4 py-2 rounded-xl font-bold" onClick={algo === "BFS"? handleSearchBFS:handleSearchIDS}>
           Search Path
         </button>
         
