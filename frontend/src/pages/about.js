@@ -26,7 +26,7 @@ function About() {
         }, 2000);
 
         return () => clearInterval(intervalId);
-    }, []);
+    }, [benImage]);
     return (
         <div className='relative w-full h-screen bg-1 font-inter'>
             <div 
