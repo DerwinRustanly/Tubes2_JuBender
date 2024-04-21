@@ -24,7 +24,6 @@ type SearchResponse struct {
 }
 
 type SearchPathRequest struct {
-    Algorithm   string `json:"algorithm"`
     Source      string `json:"source"`
     Destination string `json:"destination"`
 }
@@ -144,7 +143,8 @@ func main() {
 
     // Register the apiSearchHandler with the "/api/search" endpoint
     http.HandleFunc("/api/search", apiSearchHandler)
-	http.HandleFunc("/result/search", handleSearch)  // New handler for search results
+	http.HandleFunc("/bfs", handleSearch)  // New handler for search results
+	http.HandleFunc("/ids", handleSearch)  // New handler for search results
     // Start the HTTP server
     if err := http.ListenAndServe(":8080", nil); err != nil {
         log.Fatalf("Failed to start server: %v", err)
