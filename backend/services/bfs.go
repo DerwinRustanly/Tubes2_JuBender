@@ -28,8 +28,10 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	parentMap := make(map[string]string)
 	totalLinksSearched := 0
 	totalRequest := 0
-	startURL := "https://en.wikipedia.org/wiki/" + startTitle
-	targetURL := "https://en.wikipedia.org/wiki/" + targetTitle
+	startURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(startTitle)
+	targetURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(targetTitle)
+	fmt.Println("Encoded start:", startURL)
+	fmt.Println("Encoded target:", targetURL)
 	startTime := time.Now()
 	bfs(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
 	elapsed := time.Since(startTime)
@@ -65,7 +67,6 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	var wg sync.WaitGroup
 	var currentDepth int32
 	var runningQueue *chan Article
-	decodedTarget := utils.DecodePercent(strings.TrimPrefix(targetURL, "https://en.wikipedia.org/wiki/"))
 
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
 
@@ -100,16 +101,13 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 		link := e.Request.AbsoluteURL(e.Attr("href"))
 		trimmedLink := strings.TrimPrefix(link, "https://en.wikipedia.org")
 		if strings.HasPrefix(trimmedLink, "/wiki/") && !excludeRegex.MatchString(trimmedLink) {
+			encodedLinkTitle := utils.EncodeToPercent(strings.TrimPrefix(link, "https://en.wikipedia.org/wiki/"))
+			link = "https://en.wikipedia.org/wiki/" + encodedLinkTitle
 			if _, seen := visited.LoadOrStore(link, true); !seen {
 				mutex.Lock()
 				*totalLinksSearched += 1
 				depth := findDepth(e.Request.URL.String()) + 1
 				mutex.Unlock()
-				// if e.Request.URL.String() == "https://en.wikipedia.org/wiki/Joko_Widodo" {
-				// 	fmt.Println(utils.DecodePercent(strings.TrimPrefix(link, "https://en.wikipedia.org/wiki/")))
-				// 	fmt.Println(utils.DecodePercent(strings.TrimPrefix(targetURL, "https://en.wikipedia.org/wiki/")))
-				// }
-				// fmt.Println(link, depth)
 				mutex.Lock()
 				article := Article{url: link, depth: depth}
 				if depth == int(currentDepth) {
@@ -123,9 +121,8 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 
 				}
 				mutex.Unlock()
-				decodedLink := utils.DecodePercent(strings.TrimPrefix(link, "https://en.wikipedia.org/wiki/"))
-				addParent("https://en.wikipedia.org/wiki/"+decodedLink, e.Request.URL.String())
-				if decodedLink == decodedTarget {
+				addParent(link, e.Request.URL.String())
+				if link == targetURL {
 					atomic.CompareAndSwapInt32(&targetFound, 0, 1)
 					fmt.Println(">> Found MINIMAL path at:", e.Request.URL.String())
 					fmt.Println(">  Target:", link)
@@ -149,7 +146,6 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				if atomic.LoadInt32(&targetFound) == 1 {
 					return
 				}
-				// fmt.Println(currentDepth)
 				article, ok := dequeue(runningQueue)
 
 				if !ok {
@@ -173,7 +169,6 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				mutex.Unlock()
 				visited.Store(article.url, true)
 				c.Visit(article.url)
-				// fmt.Println("Depth", currentDepth, "Article", article.url)
 			}
 		}()
 	}

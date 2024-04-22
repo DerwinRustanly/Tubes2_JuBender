@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func DecodePercent(str string) string {
+func DecodeToPercent(str string) string {
 	decodedString, err := url.QueryUnescape(str)
 	if err != nil {
 		fmt.Println("Error decoding string:", err)
@@ -15,7 +15,11 @@ func DecodePercent(str string) string {
 	return decodedString
 }
 
+func EncodeToPercent(str string) string {
+	return url.QueryEscape(str)
+}
+
 func FormatToTitle(str string) string {
-	str = DecodePercent(str)
+	str = DecodeToPercent(str)
 	return strings.ReplaceAll(str, "_", " ")
 }
