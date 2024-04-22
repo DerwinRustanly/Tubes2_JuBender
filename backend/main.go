@@ -1,28 +1,25 @@
 package main
 
 import (
-	"net/http"
 	"runtime"
 
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/routes"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func CORSMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.AbortWithStatus(http.StatusOK)
-	}
+func setupRoute(router *gin.Engine) {
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"*"}
+	config.AllowHeaders = []string{"Authorization, content-type"}
+	router.Use(cors.New(config))
+	router.Use(gin.Recovery())
+	routes.RegisterRoutes(router)
 }
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	router := gin.Default()
-	router.Use(CORSMiddleware())
-	routes.RegisterRoutes(router)
+	setupRoute(router)
 	router.Run(":8080")
 }
