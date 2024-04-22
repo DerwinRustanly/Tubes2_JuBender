@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-import { FaInstagram, FaLinkedin, FaGithub } from 'react-icons/fa';
+import { FaInstagram, FaGithub } from 'react-icons/fa';
 
 
 function About() {
