@@ -1,12 +1,21 @@
 package utils
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 )
 
-func FormatFromPercent(str string) string {
-	str = strings.ReplaceAll(str, "_", " ")
-	str = strings.ReplaceAll(str, "%26", "&")
-	str = strings.ReplaceAll(str, "%27", "'")
-	return str
+func DecodePercent(str string) string {
+	decodedString, err := url.QueryUnescape(str)
+	if err != nil {
+		fmt.Println("Error decoding string:", err)
+		return ""
+	}
+	return decodedString
+}
+
+func FormatToTitle(str string) string {
+	str = DecodePercent(str)
+	return strings.ReplaceAll(str, "_", " ")
 }

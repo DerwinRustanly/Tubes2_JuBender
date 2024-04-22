@@ -16,7 +16,7 @@ func unwrapParentMap(targetURL string, parentMap *map[string]string) []string {
 	unwrappedPath := []string{}
 	for url := targetURL; url != ""; url = (*parentMap)[url] {
 		trimmedLink := strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/")
-		unwrappedPath = append([]string{utils.FormatFromPercent(trimmedLink)}, unwrappedPath...)
+		unwrappedPath = append([]string{utils.FormatToTitle(trimmedLink)}, unwrappedPath...)
 		if url == (*parentMap)[url] {
 			break
 		}
@@ -34,8 +34,8 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	bfs(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
 	elapsed := time.Since(startTime)
 	result := make(map[string]any)
-	result["from"] = utils.FormatFromPercent(startTitle)
-	result["to"] = utils.FormatFromPercent(targetTitle)
+	result["from"] = utils.FormatToTitle(startTitle)
+	result["to"] = utils.FormatToTitle(targetTitle)
 	result["time_ms"] = elapsed.Milliseconds()
 	result["total_link_searched"] = totalLinksSearched
 	result["total_scrap_request"] = totalRequest
@@ -57,7 +57,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	visited := sync.Map{}
 	visited.Store(startURL, true)
 
-	goroutineCount := 10
+	goroutineCount := 20
 	queue1 := make(chan Article, 7000000)
 	queue2 := make(chan Article, 7000000)
 	var mutex sync.Mutex
@@ -65,6 +65,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	var wg sync.WaitGroup
 	var currentDepth int32
 	var runningQueue *chan Article
+	decodedTarget := utils.DecodePercent(strings.TrimPrefix(targetURL, "https://en.wikipedia.org/wiki/"))
 
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
 
@@ -104,6 +105,10 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				*totalLinksSearched += 1
 				depth := findDepth(e.Request.URL.String()) + 1
 				mutex.Unlock()
+				// if e.Request.URL.String() == "https://en.wikipedia.org/wiki/Joko_Widodo" {
+				// 	fmt.Println(utils.DecodePercent(strings.TrimPrefix(link, "https://en.wikipedia.org/wiki/")))
+				// 	fmt.Println(utils.DecodePercent(strings.TrimPrefix(targetURL, "https://en.wikipedia.org/wiki/")))
+				// }
 				// fmt.Println(link, depth)
 				mutex.Lock()
 				article := Article{url: link, depth: depth}
@@ -118,8 +123,9 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 
 				}
 				mutex.Unlock()
-				addParent(link, e.Request.URL.String())
-				if link == targetURL {
+				decodedLink := utils.DecodePercent(strings.TrimPrefix(link, "https://en.wikipedia.org/wiki/"))
+				addParent("https://en.wikipedia.org/wiki/"+decodedLink, e.Request.URL.String())
+				if decodedLink == decodedTarget {
 					atomic.CompareAndSwapInt32(&targetFound, 0, 1)
 					fmt.Println(">> Found MINIMAL path at:", e.Request.URL.String())
 					fmt.Println(">  Target:", link)
@@ -134,13 +140,15 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	enqueue(Article{url: startURL, depth: 0}, runningQueue)
 	addParent(startURL, "")
 
-	// Simplify and improve goroutine management and queue switching
 	for i := 0; i < goroutineCount; i++ {
 		time.Sleep(300 * time.Millisecond)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for {
+				if atomic.LoadInt32(&targetFound) == 1 {
+					return
+				}
 				// fmt.Println(currentDepth)
 				article, ok := dequeue(runningQueue)
 
@@ -166,15 +174,11 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				visited.Store(article.url, true)
 				c.Visit(article.url)
 				// fmt.Println("Depth", currentDepth, "Article", article.url)
-
-				if atomic.LoadInt32(&targetFound) == 1 {
-					return
-				}
 			}
 		}()
 	}
 
-	wg.Wait() // Wait for all processing to complete
+	wg.Wait()
 	close(queue1)
 	close(queue2)
 }

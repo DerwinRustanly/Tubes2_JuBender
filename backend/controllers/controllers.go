@@ -54,8 +54,8 @@ func IdsController(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
 		return
 	}
-	log.Printf("Received BFS request: %+v", req)
-	bfsResult := services.HandleIDS(req.Start, req.Target)
-	response := wrapToResponse(bfsResult)
+	log.Printf("Received IDS request: %+v", req)
+	idsResult := services.HandleIDS(req.Start, req.Target)
+	response := wrapToResponse(idsResult)
 	c.JSON(http.StatusOK, response)
 }
