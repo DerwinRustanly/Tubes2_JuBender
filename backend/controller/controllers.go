@@ -34,5 +34,14 @@ func BfsController(c *gin.Context) {
 }
 
 func IdsController(c *gin.Context) {
-	// Implement IDS handling if necessary
+	req := new(models.Request)
+	if err := c.ShouldBindJSON(req); err != nil {
+		log.Printf("Error binding JSON: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+	log.Printf("Received BFS request: %+v", req)
+	bfsResult := services.HandleIDS(req.Start, req.Target)
+	response := wrapToResponse(bfsResult)
+	c.JSON(http.StatusOK, response)
 }
