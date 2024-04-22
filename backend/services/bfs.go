@@ -101,12 +101,12 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 		link := e.Request.AbsoluteURL(e.Attr("href"))
 		trimmedLink := strings.TrimPrefix(link, "https://en.wikipedia.org")
 		if strings.HasPrefix(trimmedLink, "/wiki/") && !excludeRegex.MatchString(trimmedLink) {
-			encodedLinkTitle := utils.EncodeToPercent(strings.TrimPrefix(link, "https://en.wikipedia.org/wiki/"))
-			link = "https://en.wikipedia.org/wiki/" + encodedLinkTitle
+			link = utils.WikipediaUrlEncode(link)
 			if _, seen := visited.LoadOrStore(link, true); !seen {
+				parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
 				mutex.Lock()
 				*totalLinksSearched += 1
-				depth := findDepth(e.Request.URL.String()) + 1
+				depth := findDepth(parentUrlEncoded) + 1
 				mutex.Unlock()
 				mutex.Lock()
 				article := Article{url: link, depth: depth}
@@ -120,11 +120,14 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 					}
 
 				}
+				if parentUrlEncoded == "https://en.wikipedia.org/wiki/Joko_Widodo" {
+					fmt.Println(link)
+				}
 				mutex.Unlock()
-				addParent(link, e.Request.URL.String())
+				addParent(link, parentUrlEncoded)
 				if link == targetURL {
-					atomic.CompareAndSwapInt32(&targetFound, 0, 1)
-					fmt.Println(">> Found MINIMAL path at:", e.Request.URL.String())
+					atomic.StoreInt32(&targetFound, 1)
+					fmt.Println(">> Found MINIMAL path at:", parentUrlEncoded)
 					fmt.Println(">  Target:", link)
 					return
 				}
@@ -138,7 +141,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	addParent(startURL, "")
 
 	for i := 0; i < goroutineCount; i++ {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -167,8 +170,8 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				mutex.Lock()
 				*totalRequest += 1
 				mutex.Unlock()
-				visited.Store(article.url, true)
-				c.Visit(article.url)
+				visited.Store(utils.WikipediaUrlEncode(article.url), true)
+				c.Visit(utils.WikipediaUrlDecode(article.url))
 			}
 		}()
 	}
