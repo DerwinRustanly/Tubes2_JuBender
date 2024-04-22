@@ -1,196 +1,19 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef , useCallback } from "react";
 import LoadingPopup from "../component/loading";
 import swtch from "../assets/switch.svg";
-import * as d3 from "d3";
 
-function ForceGraph(
-  {
-    nodes, // an iterable of node objects (typically [{id}, …])
-    links, // an iterable of link objects (typically [{source, target}, …])
-  },
-  {
-    nodeId = (d) => d.id, // given d in nodes, returns a unique identifier (string)
-    nodeGroup, // given d in nodes, returns an (ordinal) value for color
-    nodeGroups, // an array of ordinal values representing the node groups
-    nodeTitle, // given d in nodes, a title string
-    nodeFill = "#DE5D83", // node stroke fill (if not using a group color encoding)
-    nodeStroke = "#fff", // node stroke color
-    nodeStrokeWidth = 1.5, // node stroke width, in pixels
-    nodeStrokeOpacity = 1, // node stroke opacity
-    nodeRadius = 10, // node radius, in pixels
-    nodeStrength,
-    linkSource = ({ source }) => source, // given d in links, returns a node identifier string
-    linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
-    linkStroke = "#999", // link stroke color
-    linkStrokeOpacity = 0.6, // link stroke opacity
-    linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
-    linkStrokeLinecap = "round", // link stroke linecap
-    linkStrength,
-    colors = d3.schemeTableau10, // an array of color strings, for the node groups
-    width = 640, // outer width, in pixels
-    height = 400, // outer height, in pixels
-    invalidation, // when this promise resolves, stop the simulation
-  } = {}
-) {
-  // Compute values.
+import ForceGraph from "./graph";
 
-  const spacing = width / (nodes.length + 1); // Calculate spacing based on the width and number of nodes
-  nodes.forEach((node, index) => {
-    node.x = spacing * (index + 1); // Space nodes evenly along the x-axis
-    node.y = height / 2; // Align all nodes at the middle of the y-axis
-    node.fx = node.x; // Fixing node position along x-axis
-    node.fy = node.y; // Fixing node position along y-axis
-  });
 
-  const N = d3.map(nodes, nodeId).map(intern);
-  const R = typeof nodeRadius !== "function" ? null : d3.map(nodes, nodeRadius);
-  const LS = d3.map(links, linkSource).map(intern);
-  const LT = d3.map(links, linkTarget).map(intern);
-  if (nodeTitle === undefined) nodeTitle = (_, i) => N[i];
-  const T = nodeTitle == null ? null : d3.map(nodes, nodeTitle);
-  const G = nodeGroup == null ? null : d3.map(nodes, nodeGroup).map(intern);
-  const W =
-    typeof linkStrokeWidth !== "function"
-      ? null
-      : d3.map(links, linkStrokeWidth);
-  const L = typeof linkStroke !== "function" ? null : d3.map(links, linkStroke);
-
-  // Replace the input nodes and links with mutable objects for the simulation.
-  nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
-  links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
-
-  // Compute default domains.
-  if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
-
-  // Construct the scales.
-  const color = nodeGroup == null ? null : d3.scaleOrdinal(nodeGroups, colors);
-
-  // Construct the forces.
-  const forceNode = d3.forceManyBody();
-  const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
-  if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
-  if (linkStrength !== undefined) forceLink.strength(linkStrength);
-
-  const simulation = d3
-    .forceSimulation(nodes)
-    .force("link", forceLink)
-    .force("charge", forceNode)
-    .force("center", d3.forceCenter())
-    .force("repel", d3.forceManyBody().strength(-500)) // Negative strength results in repulsion
-    .on("tick", ticked);
-
-  const svg = d3
-    .create("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .attr("viewBox", [-width / 2, -height / 2, width, height])
-    .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
-
-  const labelPadding = 20; // Adjust this value to control the gap between the node and its label
-  const text = svg
-    .append("g")
-    .attr("class", "labels")
-    .selectAll("text")
-    .data(nodes)
-    .enter()
-    .append("text")
-    .attr("x", (d) => d.x)
-    .attr("y", (d) => d.y + nodeRadius + labelPadding) // Use the node's radius plus some padding
-    .text((d) => d.id) // Assuming nodes have an 'id' property
-    .style("font-size", "12px")
-    .style("fill", "#333")
-    .style("text-anchor", "middle"); // Center the text horizontally
-
-  const link = svg
-    .append("g")
-    .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
-    .attr("stroke-opacity", linkStrokeOpacity)
-    .attr(
-      "stroke-width",
-      typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null
-    )
-    .attr("stroke-linecap", linkStrokeLinecap)
-    .selectAll("line")
-    .data(links)
-    .join("line");
-
-  const node = svg
-    .append("g")
-    .attr("fill", nodeFill)
-    .attr("stroke", nodeStroke)
-    .attr("stroke-opacity", nodeStrokeOpacity)
-    .attr("stroke-width", nodeStrokeWidth)
-    .selectAll("circle")
-    .data(nodes)
-    .join("circle")
-    .attr("r", nodeRadius)
-    .call(drag(simulation));
-
-  if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
-  if (L) link.attr("stroke", ({ index: i }) => L[i]);
-  if (G) node.attr("fill", ({ index: i }) => color(G[i]));
-  if (R) node.attr("r", ({ index: i }) => R[i]);
-  if (T) node.append("title").text(({ index: i }) => T[i]);
-  if (invalidation != null) invalidation.then(() => simulation.stop());
-
-  function intern(value) {
-    return value !== null && typeof value === "object"
-      ? value.valueOf()
-      : value;
-  }
-
-  function ticked() {
-    link
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
-
-    node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-
-    text.attr("x", (d) => d.x).attr("y", (d) => d.y + labelPadding);
-  }
-
-  function drag(simulation) {
-    function dragstarted(event) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      // Optionally unfix positions to allow dragging:
-      // event.subject.fx = null;
-      // event.subject.fy = null;
+function debounce(fn, delay) {
+  let timeoutId;
+  return function(...args) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
     }
-
-    function dragged(event) {
-      event.subject.fx = event.x;
-      event.subject.fy = event.y;
-    }
-
-    function dragended(event) {
-      if (!event.active) simulation.alphaTarget(0);
-      // event.subject.fx = null;
-      // event.subject.fy = null;
-    }
-
-    return d3
-      .drag()
-      .on("start", dragstarted)
-      .on("drag", dragged)
-      .on("end", dragended);
-  }
-
-  return Object.assign(svg.node(), { scales: { color } });
-}
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeoutId = setTimeout(() => fn(...args), delay);
   };
 }
-
 
 export default function Finder() {
   const [algo, setAlgo] = useState("BFS");
@@ -252,7 +75,7 @@ export default function Finder() {
     }
   };
 
-  const fetchSourceSuggestions = debounce((value) => {
+  const fetchSourceSuggestions = useCallback(debounce((value) => {
     // Update state to indicate typing has stopped
     if (value.length > 0) {
       fetch("http://localhost:8080/api/search?query=" + encodeURI(value))
@@ -275,9 +98,9 @@ export default function Finder() {
     } else {
       setSourceSuggestions([]);
     }
-  }, 300);
+  }, 200),[]);
 
-  const fetchDestSuggestions = debounce((value) => {
+  const fetchDestSuggestions = useCallback(debounce((value) => {
     // Update state to indicate typing has stopped
     if (value.length > 0) {
       fetch("http://localhost:8080/api/search?query=" + encodeURI(value))
@@ -300,7 +123,7 @@ export default function Finder() {
     } else {
       setDestSuggestions([]);
     }
-  }, 300);
+  }, 200), []);
 
   const handleDestChange = (e) => {
     const value = e.target.value;
@@ -365,30 +188,31 @@ export default function Finder() {
   };
 
   const transformResultDataToGraphFormat = (resultData) => {
-    const nodes = new Set();
+    let nodesMap = new Map(); // Use a Map to easily update node information
     const links = [];
   
-    // Assuming resultData.path is an array of node names representing a single path
-    resultData.path.forEach((node, index) => {
-      nodes.add(node); // Add node to set of unique nodes
+    // Iterate over the path to populate nodes and links
+    resultData.path.forEach((nodeId, index) => {
+      // Add or update the node in the map with its depth
+      nodesMap.set(nodeId, { id: nodeId, group: 1, depth: index });
   
       // Create a link to the next node if there is one
       if (index < resultData.path.length - 1) {
         links.push({
-          source: node,
+          source: nodeId,
           target: resultData.path[index + 1],
-          value: 1, // or any other value you might want to assign
+          value: 1, // Assign any value as needed
         });
       }
     });
+
+    
   
-    // Convert the set of unique nodes into the desired format
-    const formattedNodes = Array.from(nodes).map((nodeId) => ({
-      id: nodeId,
-      group: 1, // Assign all nodes to the same group, or customize as needed
-    }));
+    // Convert the map of unique nodes into an array format
+    const nodes = Array.from(nodesMap.values());
   
-    return { nodes: formattedNodes, links };
+    console.log(nodes);
+    return { nodes, links };
   };
 
   useEffect(() => {
@@ -557,7 +381,7 @@ export default function Finder() {
           resultData.path && resultData.path.length > 0 && (
             <div>
               <div className="w-full flex flex-col gap-2 text-lg font-bold text-white mt-3 px-1">
-                <span>Found 1 paths with depth of {resultData.path.length}</span>
+                <span>Found 1 paths with depth of {resultData.path.length - 1 }</span>
                 <div className="w-full flex flex-row justify-between items-center">
                   <div className="text-3">Algorithm</div>
                   <div>{algo}</div>
