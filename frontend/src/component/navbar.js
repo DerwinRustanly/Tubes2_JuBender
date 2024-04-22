@@ -13,7 +13,7 @@ export default function Navbar(){
     return(
         <div className="w-full fixed flex justify-between text-white font-inter py-4 px-8 font-bold text-xl bg-1 z-50"> 
             <div className="flex justify-center text-3 px-2 items-center gap-12">
-                <img alt="" src={logo} width={50}></img>
+                <img alt="" src={logo} width={40}></img>
                 <Link to={"/"}><span className={`hover:text-white ${page === "/"? "text-white": "text-3"}`} onClick={()=>setPage('/')}>Finder</span></Link>
                 <Link to={"/about"}><span className={`hover:text-white ${page === "/about"? "text-white": "text-3"}`} onClick={()=>setPage('/about')}>About</span></Link>
             </div>

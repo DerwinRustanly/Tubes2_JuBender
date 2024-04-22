@@ -118,7 +118,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 
 	enqueue(startURL, "")
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
