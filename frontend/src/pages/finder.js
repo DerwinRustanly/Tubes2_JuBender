@@ -316,6 +316,7 @@ export default function Finder() {
   };
   const handleSearchBFS = async () => {
     setIsLoading(true);
+    setResultData({});
     try {
       const response = await fetch(`http://localhost:8080/bfs`, {
         method: "POST",
@@ -341,6 +342,7 @@ export default function Finder() {
   };
   const handleSearchIDS = async () => {
     setIsLoading(true);
+    setResultData({});
     try {
       const response = await fetch(`http://localhost:8080/ids`, {
         method: "POST",
