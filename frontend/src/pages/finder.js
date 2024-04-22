@@ -224,12 +224,11 @@ export default function Finder() {
   const [isDestTyping, setIsDestTyping] = useState(false);
   const [noExactMatchSrc, setNoExactMatchSrc] = useState(false);
   const [noExactMatchDest, setNoExactMatchDest] = useState(false);
+  const [resultData, setResultData] = useState({});
+  const [graphData,setGraphData] = useState({});
   const graphContainerRef = useRef(null);
 
-  // Assuming 'width' and 'height' are the dimensions you want for the graph.
-  // If they need to be dynamic, you can use useState or calculate them based on the container size.
-  const width = 577; // Example width, you should adjust this as needed.
-  const height = 384;
+
   const handleSwitch = () => {
     let temp = source;
     setSource(dest);
@@ -333,7 +332,10 @@ export default function Finder() {
       });
       const data = await response.json();
       // Handle the response data here, e.g., setting state to display the results
+      setResultData(data);
+      setGraphData(transformResultDataToGraphFormat(data));
       console.log(data);
+      console.log(Array.isArray(data));
     } catch (error) {
       console.error('Error during search:', error);
     }
@@ -357,28 +359,59 @@ export default function Finder() {
       console.error('Error during search:', error);
     }
   };
+
+  const transformResultDataToGraphFormat = (resultData) => {
+    const nodes = new Set();
+    const links = [];
   
+    // Assuming resultData.path is an array of node names representing a single path
+    resultData.path.forEach((node, index) => {
+      nodes.add(node); // Add node to set of unique nodes
+  
+      // Create a link to the next node if there is one
+      if (index < resultData.path.length - 1) {
+        links.push({
+          source: node,
+          target: resultData.path[index + 1],
+          value: 1, // or any other value you might want to assign
+        });
+      }
+    });
+  
+    // Convert the set of unique nodes into the desired format
+    const formattedNodes = Array.from(nodes).map((nodeId) => ({
+      id: nodeId,
+      group: 1, // Assign all nodes to the same group, or customize as needed
+    }));
+  
+    return { nodes: formattedNodes, links };
+  };
+
   useEffect(() => {
-    if (!graphContainerRef.current) {
+    if (!graphContainerRef.current || !graphData.nodes || !graphData.links) {
       return;
     }
-
-    // Assuming ForceGraph is a component that renders a graph
-    // You should replace it with actual function call or component that you have.
+  
+    // Clear previous SVG content
+    graphContainerRef.current.innerHTML = '';
+  
+    // Generate the graph with the updated data
     const forceGraph = ForceGraph({
-      nodes: miserables.nodes,
-      links: miserables.links,
-      // ...other options...
+      nodes: graphData.nodes,
+      links: graphData.links,
+      // other configurations as needed
+    }, {
+      // configuration object (if needed)
     });
-
-    // Append the graph to the container ref
+  
+    // Append the new graph to the container
     graphContainerRef.current.appendChild(forceGraph);
-
+  
     // Cleanup function to stop the simulation when the component unmounts
     return () => {
-      // Stop the simulation or any other cleanup logic
+      // Any cleanup logic for the force graph
     };
-  }, [graphContainerRef]);
+  }, [graphData]);
 
   
   return (
@@ -466,23 +499,24 @@ export default function Finder() {
           Search Path
         </button>
         
-        <div className="w-full flex flex-col gap-2 text-lg font-bold text-white mt-3 px-1">
-            <span>Found x paths with depth of y</span>
+        {resultData.path && resultData.path.length > 0 && (<div>
+          <div className="w-full flex flex-col gap-2 text-lg font-bold text-white mt-3 px-1">
+            <span>Found 1 paths with depth of {resultData.path.length}</span>
             <div className="w-full flex flex-row justify-between items-center">
                 <div className="text-3">Algorithm</div>
                 <div>{algo}</div>
             </div>
             <div className="w-full flex flex-row justify-between items-center">
                 <div  className="text-3">From</div>
-                <div>{source}</div>
+                <div>{resultData.from}</div>
             </div>
             <div className="w-full flex flex-row justify-between items-center">
                 <div className="text-3">To</div>
-                <div>{dest}</div>
+                <div>{resultData.to}</div>
             </div>
             <div className="w-full flex flex-row justify-between items-center">
                 <div className="text-3">Duration(ms)</div>
-                <div>1000</div>
+                <div>{resultData.time_ms}</div>
             </div>
         </div>
 
@@ -493,22 +527,20 @@ export default function Finder() {
         <div className="mt-8 w-full">
           <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
           <div className="w-full pt-4 flex flex-col gap-2">
-            {dummyPaths.map((item) => (
-              <div key={item.id} className="w-full flex flex-row items-center mb-2 gap-4">
+              <div className="w-full flex flex-row items-center mb-2 gap-4">
                 <div className="flex justify-center items-center text-5 bg-4 py-4 px-6 text-center rounded-xl">
-                  <span className="text-xl font-bold">{item.id}</span>
+                  <span className="text-xl font-bold">1</span>
                 </div>
                 <div className="break-all text-3 text-lg">
-                  {item.path.join(' → ')}
+                  {resultData.path.join(' → ')}
                 </div>
               </div>
-            ))}
           </div>
-        </div>
-        
+        </div></div>
+      )}
       </div>
-            
       
+          
 
       
     </div>
