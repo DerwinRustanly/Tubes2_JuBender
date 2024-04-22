@@ -18,7 +18,10 @@ import (
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/services"
 	"github.com/gin-gonic/gin"
 )
-func apiSearchHandler(c *gin.Context) {
+func ApiSearchHandler(c *gin.Context) {
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
     query := c.Query("query") // Query is a shortcut for c.Request.URL.Query().Get("query")
     if query == "" {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Query parameter 'query' is missing"})

@@ -6,6 +6,7 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine) {
+	router.GET("/api/search", controller.ApiSearchHandler)
 	router.POST("/bfs", controller.BfsController)
 	router.POST("/ids", controller.IdsController)
 }
