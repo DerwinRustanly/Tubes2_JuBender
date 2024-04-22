@@ -5,26 +5,11 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gocolly/colly/v2"
 )
-
-// func printPath(listPath []string) {
-// 	fmt.Println("Path: ")
-// 	for i, url := range listPath {
-// 		fmt.Printf("%d. %s\n", i, url)
-// 	}
-// }
-
-// func printRes(res map[string]any) {
-// 	fmt.Printf("Start: %s\n", res["from"])
-// 	fmt.Printf("Target: %s\n", res["to"])
-// 	fmt.Printf("Time(ms): %d\n", res["time_ms"])
-// 	fmt.Printf("Total link searched: %d\n", res["total_link_searched"])
-// 	fmt.Printf("Total scrap request: %d\n", res["total_scrap_request"])
-// 	printPath(res["path"].([]string))
-// }
 
 func unwrapParentMap(targetURL string, parentMap *map[string]string) []string {
 	unwrappedPath := []string{}
@@ -65,9 +50,9 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	visited := sync.Map{}
 	visited.Store(startURL, true)
 
-	var queue []string
+	queue := make(chan string, 7000000)
 	var mutex sync.Mutex
-	var targetFound bool
+	var targetFound int32
 	var wg sync.WaitGroup
 
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
@@ -76,26 +61,34 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 		colly.AllowedDomains("en.wikipedia.org"),
 	)
 
-	enqueue := func(url, parentURL string) {
+	enqueue := func(url string) {
+		queue <- url
+	}
+
+	dequeue := func() (string, bool) {
+		url, ok := <-queue
+		return url, ok
+	}
+
+	addParent := func(url string, parentURL string) {
 		mutex.Lock()
-		queue = append(queue, url)
+		if atomic.LoadInt32(&targetFound) == 1 {
+			parentMapCopy := *parentMap
+			parentMapCopy[url] = parentURL
+			if len(unwrapParentMap(url, &parentMapCopy)) < len(unwrapParentMap(url, parentMap)) {
+				fmt.Println(">> Found MINIMAL path at:", parentURL)
+				fmt.Println(">  Target:", url)
+				(*parentMap)[url] = parentURL
+			}
+			mutex.Unlock()
+			return
+		}
 		(*parentMap)[url] = parentURL
 		mutex.Unlock()
 	}
 
-	dequeue := func() string {
-		mutex.Lock()
-		defer mutex.Unlock()
-		if len(queue) == 0 {
-			return ""
-		}
-		var url string
-		url, queue = queue[0], queue[1:]
-		return url
-	}
-
 	c.OnError(func(r *colly.Response, err error) {
-		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "Error:", err)
+		fmt.Println("Request URL:", r.Request.URL, "Error:", err)
 	})
 
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
@@ -106,38 +99,47 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				mutex.Lock()
 				*totalLinksSearched += 1
 				mutex.Unlock()
-				enqueue(link, e.Request.URL.String())
+				addParent(link, e.Request.URL.String())
 				if link == targetURL {
-					fmt.Println("Found target at:", link)
-					targetFound = true
+					if atomic.CompareAndSwapInt32(&targetFound, 0, 1) {
+						fmt.Println(">> Found MINIMAL path at:", e.Request.URL.String())
+						fmt.Println(">  Target:", link)
+						return
+					}
+					fmt.Println(">> Found path at:", e.Request.URL.String())
+					fmt.Println(">  Target:", link)
 					return
 				}
+				enqueue(link)
 			}
 		}
 	})
 
-	enqueue(startURL, "")
+	enqueue(startURL)
+	addParent(startURL, "")
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 50; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for {
-				if targetFound {
-					return
-				}
-				nextURL := dequeue()
-				if nextURL == "" {
-					time.Sleep(1 * time.Millisecond)
+				nextURL, ok := dequeue()
+				if !ok {
+					time.Sleep(100 * time.Millisecond)
 					continue
 				}
 				c.Visit(nextURL)
 				mutex.Lock()
 				*totalRequest += 1
 				mutex.Unlock()
+
+				if targetFound == 1 {
+					return
+				}
 			}
 		}()
 	}
 
 	wg.Wait()
+	close(queue)
 }
