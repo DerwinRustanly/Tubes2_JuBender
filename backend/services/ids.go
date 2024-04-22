@@ -10,64 +10,55 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
-func HandleIDS(startTitle string, targetTitle string) map[string]any {
+func HandleIDS(startTitle, targetTitle string) map[string]any {
+	startURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(startTitle)
+	targetURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(targetTitle)
 	parentMap := make(map[string]string)
+	depthMap := make(map[string]int)
 	totalLinksSearched := 0
 	totalRequest := 0
-	startURL := "https://en.wikipedia.org/wiki/" + startTitle
-	targetURL := "https://en.wikipedia.org/wiki/" + targetTitle
 	startTime := time.Now()
-	ids(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
+
+	ids(startURL, targetURL, &parentMap, &depthMap, &totalLinksSearched, &totalRequest)
+
 	elapsed := time.Since(startTime)
-	result := make(map[string]any)
-	result["from"] = utils.FormatToTitle(startTitle)
-	result["to"] = utils.FormatToTitle(targetTitle)
-	result["time_ms"] = elapsed.Milliseconds()
-	result["total_link_searched"] = totalLinksSearched
-	result["total_scrap_request"] = totalRequest
-	result["path"] = unwrapParentMap(targetURL, &parentMap)
-	return result
+	return map[string]any{
+		"from":                utils.FormatToTitle(startTitle),
+		"to":                  utils.FormatToTitle(targetTitle),
+		"time_ms":             elapsed.Milliseconds(),
+		"total_link_searched": totalLinksSearched,
+		"total_scrap_request": totalRequest,
+		"path":                unwrapParentMap(targetURL, &parentMap),
+	}
 }
 
-func ids(startURL string, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int) {
-	if startURL == targetURL {
-		(*parentMap)[targetURL] = startURL
-		*totalLinksSearched = 1
-		return
-	}
-
+func ids(startURL, targetURL string, parentMap *map[string]string, depthMap *map[string]int, totalLinksSearched, totalRequest *int) {
 	cache := make(map[string][]Article)
 	visited := make(map[string]bool)
 	targetFound := 0
-	i := 1
+	i := 0
 
-	for {
-		dls(startURL, targetURL, parentMap, totalLinksSearched, totalRequest, i, &cache, &visited, &targetFound)
-		if targetFound == 0 {
-			i += 1
-		} else {
-			return
-		}
+	for targetFound == 0 {
+		dls(startURL, targetURL, parentMap, depthMap, &cache, &visited, totalLinksSearched, totalRequest, &targetFound, i)
+		fmt.Println("Iterate:", i, "done")
+		i++
 	}
-
 }
 
-func dls(startURL string, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int, limit int, cache *map[string][]Article, visited *map[string]bool, targetFound *int) {
-	if startURL == targetURL || limit == 0 {
+func dls(startURL, targetURL string, parentMap *map[string]string, depthMap *map[string]int, cache *map[string][]Article, visited *map[string]bool, totalLinksSearched, totalRequest *int, targetFound *int, limit int) {
+	if startURL == targetURL {
 		(*parentMap)[targetURL] = startURL
 		*totalLinksSearched = 1
+		*targetFound = 1
 		return
 	}
-
-	var stack []Article
-	var temp_stack []Article
-	currentDepth := 0
+	stack := []Article{{url: startURL, depth: 0}}
+	(*parentMap)[startURL] = ""
+	(*depthMap)[startURL] = 0
 
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
 
-	c := colly.NewCollector(
-		colly.AllowedDomains("en.wikipedia.org"),
-	)
+	c := colly.NewCollector(colly.AllowedDomains("en.wikipedia.org"))
 
 	c.OnError(func(r *colly.Response, err error) {
 		fmt.Println("Request URL:", r.Request.URL, "Error:", err)
@@ -76,50 +67,34 @@ func dls(startURL string, targetURL string, parentMap *map[string]string, totalL
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
 		link := e.Request.AbsoluteURL(e.Attr("href"))
 		trimmedLink := strings.TrimPrefix(link, "https://en.wikipedia.org")
-		if strings.HasPrefix(trimmedLink, "/wiki/") && !excludeRegex.MatchString(trimmedLink) {
-			if !(*visited)[link] {
-				temp_stack = append(temp_stack, Article{url: link, depth: currentDepth + 1})
-				(*visited)[link] = true
-				(*cache)[e.Request.URL.String()] = append((*cache)[e.Request.URL.String()], Article{url: link, depth: currentDepth + 1})
+		if !excludeRegex.MatchString(trimmedLink) {
+			link = utils.WikipediaUrlEncode(link)
+			depth := (*depthMap)[e.Request.URL.String()] + 1
+			if _, found := (*visited)[link]; !found || depth < (*depthMap)[link] {
 				*totalLinksSearched += 1
-				(*parentMap)[link] = e.Request.URL.String()
+				(*visited)[link] = true
+				(*depthMap)[link] = depth
+				stack = append(stack, Article{url: link, depth: depth})
+				parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
+				(*cache)[parentUrlEncoded] = append((*cache)[parentUrlEncoded], Article{url: link, depth: depth})
+				(*parentMap)[link] = parentUrlEncoded
 				if link == targetURL {
-					fmt.Println(">> Found at:", e.Request.URL.String())
-					fmt.Println(">  Target:", link)
-					*targetFound += 1
-					return
+					*targetFound = 1
 				}
 			}
 		}
 	})
 
-	// Init
-	stack = []Article{{url: startURL, depth: 0}}
-	(*parentMap)[startURL] = ""
-
-	for *targetFound == 0 {
-		temp_stack = []Article{}
+	for len(stack) > 0 {
+		if *targetFound == 1 {
+			break
+		}
 		nextURL := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		if nextURL.depth > currentDepth {
-			currentDepth = nextURL.depth
-		}
-		if currentDepth == limit {
-			return
-		}
-		if (*cache)[nextURL.url] == nil {
-			c.Visit(nextURL.url)
-			*totalRequest += 1
-		} else {
-			temp_stack = (*cache)[nextURL.url]
-		}
-		reverseStack(&temp_stack)
-		stack = append(stack, temp_stack...)
-	}
-}
 
-func reverseStack(stack *[]Article) {
-	for i, j := 0, len(*stack)-1; i < j; i, j = i+1, j-1 {
-		(*stack)[i], (*stack)[j] = (*stack)[j], (*stack)[i]
+		if nextURL.depth < limit {
+			c.Visit(utils.WikipediaUrlDecode(nextURL.url))
+			*totalRequest += 1
+		}
 	}
 }

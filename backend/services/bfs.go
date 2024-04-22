@@ -35,14 +35,14 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	startTime := time.Now()
 	bfs(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
 	elapsed := time.Since(startTime)
-	result := make(map[string]any)
-	result["from"] = utils.FormatToTitle(startTitle)
-	result["to"] = utils.FormatToTitle(targetTitle)
-	result["time_ms"] = elapsed.Milliseconds()
-	result["total_link_searched"] = totalLinksSearched
-	result["total_scrap_request"] = totalRequest
-	result["path"] = unwrapParentMap(targetURL, &parentMap)
-	return result
+	return map[string]any{
+		"from":                utils.FormatToTitle(startTitle),
+		"to":                  utils.FormatToTitle(targetTitle),
+		"time_ms":             elapsed.Milliseconds(),
+		"total_link_searched": totalLinksSearched,
+		"total_scrap_request": totalRequest,
+		"path":                unwrapParentMap(targetURL, &parentMap),
+	}
 }
 
 type Article struct {
