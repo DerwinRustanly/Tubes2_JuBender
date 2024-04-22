@@ -5,31 +5,18 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
 	"github.com/gocolly/colly/v2"
 )
-
-// func printPath(listPath []string) {
-// 	fmt.Println("Path: ")
-// 	for i, url := range listPath {
-// 		fmt.Printf("%d. %s\n", i, url)
-// 	}
-// }
-
-// func printRes(res map[string]any) {
-// 	fmt.Printf("Start: %s\n", res["from"])
-// 	fmt.Printf("Target: %s\n", res["to"])
-// 	fmt.Printf("Time(ms): %d\n", res["time_ms"])
-// 	fmt.Printf("Total link searched: %d\n", res["total_link_searched"])
-// 	fmt.Printf("Total scrap request: %d\n", res["total_scrap_request"])
-// 	printPath(res["path"].([]string))
-// }
 
 func unwrapParentMap(targetURL string, parentMap *map[string]string) []string {
 	unwrappedPath := []string{}
 	for url := targetURL; url != ""; url = (*parentMap)[url] {
-		unwrappedPath = append([]string{strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/")}, unwrappedPath...)
+		trimmedLink := strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/")
+		unwrappedPath = append([]string{utils.FormatFromPercent(trimmedLink)}, unwrappedPath...)
 		if url == (*parentMap)[url] {
 			break
 		}
@@ -47,13 +34,18 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	bfs(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
 	elapsed := time.Since(startTime)
 	result := make(map[string]any)
-	result["from"] = startTitle
-	result["to"] = targetTitle
+	result["from"] = utils.FormatFromPercent(startTitle)
+	result["to"] = utils.FormatFromPercent(targetTitle)
 	result["time_ms"] = elapsed.Milliseconds()
 	result["total_link_searched"] = totalLinksSearched
 	result["total_scrap_request"] = totalRequest
 	result["path"] = unwrapParentMap(targetURL, &parentMap)
 	return result
+}
+
+type Article struct {
+	url   string
+	depth int
 }
 
 func bfs(startURL string, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int) {
@@ -65,10 +57,14 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	visited := sync.Map{}
 	visited.Store(startURL, true)
 
-	var queue []string
+	goroutineCount := 10
+	queue1 := make(chan Article, 7000000)
+	queue2 := make(chan Article, 7000000)
 	var mutex sync.Mutex
-	var targetFound bool
+	var targetFound int32
 	var wg sync.WaitGroup
+	var currentDepth int32
+	var runningQueue *chan Article
 
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
 
@@ -76,26 +72,27 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 		colly.AllowedDomains("en.wikipedia.org"),
 	)
 
-	enqueue := func(url, parentURL string) {
+	enqueue := func(article Article, queue *chan Article) {
+		*queue <- article
+	}
+
+	dequeue := func(queue *chan Article) (Article, bool) {
+		article, ok := <-*queue
+		return article, ok
+	}
+
+	addParent := func(url string, parentURL string) {
 		mutex.Lock()
-		queue = append(queue, url)
 		(*parentMap)[url] = parentURL
 		mutex.Unlock()
 	}
 
-	dequeue := func() string {
-		mutex.Lock()
-		defer mutex.Unlock()
-		if len(queue) == 0 {
-			return ""
-		}
-		var url string
-		url, queue = queue[0], queue[1:]
-		return url
+	findDepth := func(url string) int {
+		return len(unwrapParentMap(url, parentMap)) - 1
 	}
 
 	c.OnError(func(r *colly.Response, err error) {
-		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "Error:", err)
+		fmt.Println("Request URL:", r.Request.URL, "Error:", err)
 	})
 
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
@@ -105,39 +102,79 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 			if _, seen := visited.LoadOrStore(link, true); !seen {
 				mutex.Lock()
 				*totalLinksSearched += 1
+				depth := findDepth(e.Request.URL.String()) + 1
 				mutex.Unlock()
-				enqueue(link, e.Request.URL.String())
+				// fmt.Println(link, depth)
+				mutex.Lock()
+				article := Article{url: link, depth: depth}
+				if depth == int(currentDepth) {
+					enqueue(article, runningQueue)
+				} else {
+					if runningQueue == &queue1 {
+						enqueue(article, &queue2)
+					} else {
+						enqueue(article, &queue1)
+					}
+
+				}
+				mutex.Unlock()
+				addParent(link, e.Request.URL.String())
 				if link == targetURL {
-					fmt.Println("Found target at:", link)
-					targetFound = true
+					atomic.CompareAndSwapInt32(&targetFound, 0, 1)
+					fmt.Println(">> Found MINIMAL path at:", e.Request.URL.String())
+					fmt.Println(">  Target:", link)
 					return
 				}
 			}
 		}
 	})
 
-	enqueue(startURL, "")
+	// Init
+	runningQueue = &queue1
+	enqueue(Article{url: startURL, depth: 0}, runningQueue)
+	addParent(startURL, "")
 
-	for i := 0; i < 10; i++ {
+	// Simplify and improve goroutine management and queue switching
+	for i := 0; i < goroutineCount; i++ {
+		time.Sleep(300 * time.Millisecond)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for {
-				if targetFound {
-					return
-				}
-				nextURL := dequeue()
-				if nextURL == "" {
-					time.Sleep(1 * time.Millisecond)
+				// fmt.Println(currentDepth)
+				article, ok := dequeue(runningQueue)
+
+				if !ok {
+					time.Sleep(100 * time.Millisecond)
 					continue
 				}
-				c.Visit(nextURL)
+
+				mutex.Lock()
+				if len(*runningQueue) == 0 {
+					if runningQueue == &queue1 {
+						runningQueue = &queue2
+					} else {
+						runningQueue = &queue1
+					}
+					atomic.AddInt32(&currentDepth, 1)
+				}
+				mutex.Unlock()
+
 				mutex.Lock()
 				*totalRequest += 1
 				mutex.Unlock()
+				visited.Store(article.url, true)
+				c.Visit(article.url)
+				// fmt.Println("Depth", currentDepth, "Article", article.url)
+
+				if atomic.LoadInt32(&targetFound) == 1 {
+					return
+				}
 			}
 		}()
 	}
 
-	wg.Wait()
+	wg.Wait() // Wait for all processing to complete
+	close(queue1)
+	close(queue2)
 }

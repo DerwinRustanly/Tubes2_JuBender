@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef , useCallback } from "react";
-import LoadingPopup from "./loading";
+import LoadingPopup from "../component/loading";
 import swtch from "../assets/switch.svg";
 
 import ForceGraph from "./graph";
@@ -139,6 +139,7 @@ export default function Finder() {
   };
   const handleSearchBFS = async () => {
     setIsLoading(true);
+    setResultData({});
     try {
       const response = await fetch(`http://localhost:8080/bfs`, {
         method: "POST",
@@ -164,6 +165,7 @@ export default function Finder() {
   };
   const handleSearchIDS = async () => {
     setIsLoading(true);
+    setResultData({});
     try {
       const response = await fetch(`http://localhost:8080/ids`, {
         method: "POST",
@@ -395,6 +397,14 @@ export default function Finder() {
                 <div className="w-full flex flex-row justify-between items-center">
                   <div className="text-3">Duration(ms)</div>
                   <div>{resultData.time_ms}</div>
+                </div>
+                <div className="w-full flex flex-row justify-between items-center">
+                  <div className="text-3">Total Article Searched</div>
+                  <div>{resultData.total_link_searched}</div>
+                </div>
+                <div className="w-full flex flex-row justify-between items-center">
+                  <div className="text-3">Total Scraped Request</div>
+                  <div>{resultData.total_scrap_request}</div>
                 </div>
               </div>
 
