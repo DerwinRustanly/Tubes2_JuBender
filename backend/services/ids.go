@@ -2,24 +2,25 @@ package services
 
 import (
 	"fmt"
+	"log"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
-	"github.com/gocolly/colly/v2"
+	"github.com/PuerkitoBio/goquery"
 )
 
 func HandleIDS(startTitle, targetTitle string) map[string]any {
 	startURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(startTitle)
 	targetURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(targetTitle)
 	parentMap := make(map[string]string)
-	depthMap := make(map[string]int)
 	totalLinksSearched := 0
 	totalRequest := 0
 	startTime := time.Now()
 
-	ids(startURL, targetURL, &parentMap, &depthMap, &totalLinksSearched, &totalRequest)
+	ids(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
 
 	elapsed := time.Since(startTime)
 	return map[string]any{
@@ -32,69 +33,110 @@ func HandleIDS(startTitle, targetTitle string) map[string]any {
 	}
 }
 
-func ids(startURL, targetURL string, parentMap *map[string]string, depthMap *map[string]int, totalLinksSearched, totalRequest *int) {
-	cache := make(map[string][]Article)
-	visited := make(map[string]bool)
-	targetFound := 0
+func ids(startURL, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int) {
+	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
+	cache := make(map[string][]string)
+	checkMap := make(map[string]bool)
+	targetFound := false
 	i := 0
-
-	for targetFound == 0 {
-		dls(startURL, targetURL, parentMap, depthMap, &cache, &visited, totalLinksSearched, totalRequest, &targetFound, i)
-		fmt.Println("Iterate:", i, "done")
+	for !targetFound {
+		targetFound = dls(startURL, targetURL, i, &checkMap, parentMap, totalLinksSearched, totalRequest, &cache, excludeRegex)
+		fmt.Println("Done iterate:", i)
 		i++
 	}
 }
 
-func dls(startURL, targetURL string, parentMap *map[string]string, depthMap *map[string]int, cache *map[string][]Article, visited *map[string]bool, totalLinksSearched, totalRequest *int, targetFound *int, limit int) {
+func scrapArticles(decodedUrl string, cache *map[string][]string, excludeRegex *regexp.Regexp) []string {
+	if links, found := (*cache)[utils.WikipediaUrlEncode(decodedUrl)]; found {
+		return links
+	}
+
+	res, err := http.Get(decodedUrl)
+	if err != nil {
+		log.Printf("Error fetching the page: %s", err)
+		return nil
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		log.Printf("Status code error: %d %s", res.StatusCode, res.Status)
+		return nil
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		log.Printf("Error parsing the HTML document: %s", err)
+		return nil
+	}
+
+	seenLinks := make(map[string]bool)
+	var links []string
+	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+		link, exists := s.Attr("href")
+		if !exists || !strings.HasPrefix(link, "/wiki") || excludeRegex.MatchString(link) {
+			return
+		}
+		link = utils.WikipediaUrlEncode("https://en.wikipedia.org" + link)
+		if _, seen := seenLinks[link]; !seen {
+			seenLinks[link] = true
+			links = append(links, link)
+		}
+	})
+
+	(*cache)[decodedUrl] = links
+	return links
+}
+
+func wrapToArticle(parent Article, child []string, parentMap *map[string]string) []Article {
+	var result []Article
+	for _, link := range child {
+		result = append(result, Article{url: link, depth: parent.depth + 1})
+		if _, found := (*parentMap)[link]; !found {
+			(*parentMap)[link] = parent.url
+		}
+	}
+	return result
+}
+
+func dls(startURL string, targetURL string, limit int, checkMap *map[string]bool, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int, cache *map[string][]string, excludeRegex *regexp.Regexp) bool {
 	if startURL == targetURL {
 		(*parentMap)[targetURL] = startURL
 		*totalLinksSearched = 1
-		*targetFound = 1
-		return
+		return true
 	}
+
+	visited := make(map[string]bool)
 	stack := []Article{{url: startURL, depth: 0}}
 	(*parentMap)[startURL] = ""
-	(*depthMap)[startURL] = 0
-
-	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
-
-	c := colly.NewCollector(colly.AllowedDomains("en.wikipedia.org"))
-
-	c.OnError(func(r *colly.Response, err error) {
-		fmt.Println("Request URL:", r.Request.URL, "Error:", err)
-	})
-
-	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		link := e.Request.AbsoluteURL(e.Attr("href"))
-		trimmedLink := strings.TrimPrefix(link, "https://en.wikipedia.org")
-		if !excludeRegex.MatchString(trimmedLink) {
-			link = utils.WikipediaUrlEncode(link)
-			depth := (*depthMap)[e.Request.URL.String()] + 1
-			if _, found := (*visited)[link]; !found || depth < (*depthMap)[link] {
-				*totalLinksSearched += 1
-				(*visited)[link] = true
-				(*depthMap)[link] = depth
-				stack = append(stack, Article{url: link, depth: depth})
-				parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
-				(*cache)[parentUrlEncoded] = append((*cache)[parentUrlEncoded], Article{url: link, depth: depth})
-				(*parentMap)[link] = parentUrlEncoded
-				if link == targetURL {
-					*targetFound = 1
-				}
-			}
-		}
-	})
 
 	for len(stack) > 0 {
-		if *targetFound == 1 {
-			break
-		}
-		nextURL := stack[len(stack)-1]
+		nextArticle := stack[len(stack)-1]
+		nextURL := nextArticle.url
 		stack = stack[:len(stack)-1]
 
-		if nextURL.depth < limit {
-			c.Visit(utils.WikipediaUrlDecode(nextURL.url))
-			*totalRequest += 1
+		if _, seen := (visited)[nextURL]; seen {
+			continue
 		}
+
+		if nextURL == targetURL {
+			fmt.Println("Found:", nextURL)
+			return true
+		}
+
+		if _, checked := (*checkMap)[nextURL]; !checked {
+			*totalLinksSearched += 1
+		}
+		(*checkMap)[nextURL] = true
+
+		if nextArticle.depth == limit {
+			continue
+		}
+
+		*totalRequest += 1
+		scrapResult := scrapArticles(utils.WikipediaUrlDecode(nextURL), cache, excludeRegex)
+		visited[nextURL] = true
+		stack = append(stack, wrapToArticle(nextArticle, scrapResult, parentMap)...)
+		// fmt.Println(nextArticle.depth, nextArticle.url)
 	}
+	return false
 }
