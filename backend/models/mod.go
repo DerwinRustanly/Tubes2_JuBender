@@ -13,3 +13,8 @@ type Response struct {
 	TotalLinkSearched int      `json:"total_link_searched"`
 	TotalScrapRequest int      `json:"total_scrap_request"`
 }
+
+type Article struct {
+	Url   string
+	Depth int
+}

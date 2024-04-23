@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/models"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
 	"github.com/gocolly/colly/v2"
 )
@@ -45,11 +46,6 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	}
 }
 
-type Article struct {
-	url   string
-	depth int
-}
-
 func bfs(startURL string, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int) {
 	if startURL == targetURL {
 		(*parentMap)[targetURL] = startURL
@@ -60,13 +56,13 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 	visited.Store(startURL, true)
 
 	goroutineCount := 20
-	queue1 := make(chan Article, 7000000)
-	queue2 := make(chan Article, 7000000)
+	queue1 := make(chan models.Article, 7000000)
+	queue2 := make(chan models.Article, 7000000)
 	var mutex sync.Mutex
 	var targetFound int32
 	var wg sync.WaitGroup
 	var currentDepth int32
-	var runningQueue *chan Article
+	var runningQueue *chan models.Article
 
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
 
@@ -74,11 +70,11 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 		colly.AllowedDomains("en.wikipedia.org"),
 	)
 
-	enqueue := func(article Article, queue *chan Article) {
+	enqueue := func(article models.Article, queue *chan models.Article) {
 		*queue <- article
 	}
 
-	dequeue := func(queue *chan Article) (Article, bool) {
+	dequeue := func(queue *chan models.Article) (models.Article, bool) {
 		article, ok := <-*queue
 		return article, ok
 	}
@@ -109,7 +105,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				depth := findDepth(parentUrlEncoded) + 1
 				mutex.Unlock()
 				mutex.Lock()
-				article := Article{url: link, depth: depth}
+				article := models.Article{Url: link, Depth: depth}
 				if depth == int(currentDepth) {
 					enqueue(article, runningQueue)
 				} else {
@@ -137,7 +133,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 
 	// Init
 	runningQueue = &queue1
-	enqueue(Article{url: startURL, depth: 0}, runningQueue)
+	enqueue(models.Article{Url: startURL, Depth: 0}, runningQueue)
 	addParent(startURL, "")
 
 	for i := 0; i < goroutineCount; i++ {
@@ -170,8 +166,8 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				mutex.Lock()
 				*totalRequest += 1
 				mutex.Unlock()
-				visited.Store(utils.WikipediaUrlEncode(article.url), true)
-				c.Visit(utils.WikipediaUrlDecode(article.url))
+				visited.Store(utils.WikipediaUrlEncode(article.Url), true)
+				c.Visit(utils.WikipediaUrlDecode(article.Url))
 			}
 		}()
 	}

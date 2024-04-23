@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/cache"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/routes"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -19,6 +21,8 @@ func setupRoute(router *gin.Engine) {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	cache.InitGlobalCache(true)
+	fmt.Println(cache.GlobalCache.Data)
 	router := gin.Default()
 	setupRoute(router)
 	router.Run(":8080")

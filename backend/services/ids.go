@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/models"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -87,12 +88,12 @@ func scrapArticles(decodedUrl string, cache *map[string][]string, excludeRegex *
 	return links
 }
 
-func wrapToArticle(parent Article, child []string, parentMap *map[string]string) []Article {
-	var result []Article
+func wrapToArticle(parent models.Article, child []string, parentMap *map[string]string) []models.Article {
+	var result []models.Article
 	for _, link := range child {
-		result = append(result, Article{url: link, depth: parent.depth + 1})
+		result = append(result, models.Article{Url: link, Depth: parent.Depth + 1})
 		if _, found := (*parentMap)[link]; !found {
-			(*parentMap)[link] = parent.url
+			(*parentMap)[link] = parent.Url
 		}
 	}
 	return result
@@ -106,12 +107,12 @@ func dls(startURL string, targetURL string, limit int, checkMap *map[string]bool
 	}
 
 	visited := make(map[string]bool)
-	stack := []Article{{url: startURL, depth: 0}}
+	stack := []models.Article{{Url: startURL, Depth: 0}}
 	(*parentMap)[startURL] = ""
 
 	for len(stack) > 0 {
 		nextArticle := stack[len(stack)-1]
-		nextURL := nextArticle.url
+		nextURL := nextArticle.Url
 		stack = stack[:len(stack)-1]
 
 		if _, seen := (visited)[nextURL]; seen {
@@ -128,7 +129,7 @@ func dls(startURL string, targetURL string, limit int, checkMap *map[string]bool
 		}
 		(*checkMap)[nextURL] = true
 
-		if nextArticle.depth == limit {
+		if nextArticle.Depth == limit {
 			continue
 		}
 
