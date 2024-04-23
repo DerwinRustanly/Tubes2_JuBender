@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/cache"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/models"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
 	"github.com/PuerkitoBio/goquery"
@@ -21,7 +22,7 @@ func HandleIDS(startTitle, targetTitle string) map[string]any {
 	totalRequest := 0
 	startTime := time.Now()
 
-	ids(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
+	ids(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest, &cache.GlobalCache.Data)
 
 	elapsed := time.Since(startTime)
 	return map[string]any{
@@ -34,21 +35,21 @@ func HandleIDS(startTitle, targetTitle string) map[string]any {
 	}
 }
 
-func ids(startURL, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int) {
+func ids(startURL, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int, cache *map[string][]string) {
 	excludeRegex := regexp.MustCompile(`^/wiki/(File:|Category:|Special:|Portal:|Help:|Wikipedia:|Talk:|User:|Template:|Template_talk:|Main_Page)`)
-	cache := make(map[string][]string)
 	checkMap := make(map[string]bool)
 	targetFound := false
 	i := 0
 	for !targetFound {
-		targetFound = dls(startURL, targetURL, i, &checkMap, parentMap, totalLinksSearched, totalRequest, &cache, excludeRegex)
+		targetFound = dls(startURL, targetURL, i, &checkMap, parentMap, totalLinksSearched, totalRequest, cache, excludeRegex)
 		fmt.Println("Done iterate:", i)
 		i++
 	}
 }
 
-func scrapArticles(decodedUrl string, cache *map[string][]string, excludeRegex *regexp.Regexp) []string {
+func scrapArticles(decodedUrl string, cache *map[string][]string, total_scrap_request *int, excludeRegex *regexp.Regexp) []string {
 	if links, found := (*cache)[utils.WikipediaUrlEncode(decodedUrl)]; found {
+		// fmt.Println("Cache Hit")
 		return links
 	}
 
@@ -84,7 +85,8 @@ func scrapArticles(decodedUrl string, cache *map[string][]string, excludeRegex *
 		}
 	})
 
-	(*cache)[decodedUrl] = links
+	(*cache)[utils.WikipediaUrlEncode(decodedUrl)] = links
+	*total_scrap_request += 1
 	return links
 }
 
@@ -133,8 +135,7 @@ func dls(startURL string, targetURL string, limit int, checkMap *map[string]bool
 			continue
 		}
 
-		*totalRequest += 1
-		scrapResult := scrapArticles(utils.WikipediaUrlDecode(nextURL), cache, excludeRegex)
+		scrapResult := scrapArticles(utils.WikipediaUrlDecode(nextURL), cache, totalRequest, excludeRegex)
 		visited[nextURL] = true
 		stack = append(stack, wrapToArticle(nextArticle, scrapResult, parentMap)...)
 		// fmt.Println(nextArticle.depth, nextArticle.url)

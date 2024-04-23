@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/cache"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/models"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/services"
 	"github.com/gin-gonic/gin"
@@ -58,4 +59,5 @@ func IdsController(c *gin.Context) {
 	idsResult := services.HandleIDS(req.Start, req.Target)
 	response := wrapToResponse(idsResult)
 	c.JSON(http.StatusOK, response)
+	cache.SaveCache()
 }

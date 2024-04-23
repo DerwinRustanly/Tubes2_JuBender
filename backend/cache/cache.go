@@ -30,8 +30,22 @@ func (c *Cache) LoadFromFile(filename string) error {
 	return easyjson.Unmarshal(fileContents, c)
 }
 
+func (c *Cache) SaveToFile(filename string) error {
+	fileContents, err := easyjson.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, fileContents, 0644)
+}
+
 func NewCache() *Cache {
 	return &Cache{
 		Data: make(map[string][]string),
+	}
+}
+
+func SaveCache() {
+	if err := GlobalCache.SaveToFile("cache/cache.json"); err != nil {
+		log.Fatalf("Failed to save cache to file: %v", err)
 	}
 }
