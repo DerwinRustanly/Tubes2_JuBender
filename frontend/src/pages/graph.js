@@ -32,22 +32,22 @@ function ForceGraph(
     // Compute values.
   
     const depthColorMapping = [
-      "#DE5D83", 
-      "#5D8AA8",
-      "#8A2BE2", 
-      "#E6B422",
-      "#2B8EAD",
-      "#DE3163", 
-      "#FF7F50", 
-      "#40E0D0", 
-      "#C71585", 
+      "#1f77b4", 
+      "#ff7f0e",
+      "#2ca02c", 
+      "#d62728",
+      "#9467bd",
+      "#8c564b", 
+      "#e377c2", 
+      "#7f7f7f", 
+      "#bcbd22", 
       "#6B8E23", 
       "#BDB76B", 
      
     ];
 
-    const legendData = depthColorMapping.map((color, i) => ({
-      color,
+    const legendData = nodes.map((_,i) => ({
+      color : depthColorMapping[i],
       depth: i
     }));
     
@@ -123,23 +123,31 @@ function ForceGraph(
     const container = svg.append("g");
 
     const legend = svg.append("g")
-      .attr("class", "legend")
-      .attr("transform", `translate(${width / 2 - 100}, ${-height / 2 + 20})`)  // Adjust position accordingly
-      .selectAll("g")
-      .data(legendData)
-      .enter().append("g");
+    .attr("class", "legend")
+    .attr("transform", `translate(${-width / 2 + 20}, ${-height / 2 + 20})`)
+    .selectAll("g")
+    .data(legendData)
+    .enter().append("g");
 
     legend.append("circle")
       .attr("cx", 0)
-      .attr("cy", (d, i) => i * 25)  // Vertical spacing between items
-      .attr("r", 10)
+      .attr("cy", (d, i) => i * 15)  // Vertical spacing between items
+      .attr("r", 6)
       .style("fill", d => d.color);
 
     legend.append("text")
-      .attr("x", 20)  // Horizontal space after the circle
-      .attr("y", (d, i) => i * 25)  // Align text with circles
-      .attr("dy", "0.35em")  // Center text vertically
-      .text(d => `Depth ${d.depth}`);
+      .attr("x", 10)  // Horizontal space after the circle
+      .attr("y", (d, i) => i * 15 + 3)  // Align text with circles
+      .style("font-size", "12px")
+      .text((d, i) => {
+        if (i === 0) {
+          return "Start Page";  // First item
+        } else if (i === legendData.length - 1) {
+          return "End Page";  // Last item
+        } else {
+          return `${i} degree${i > 1 ? 's' : ''} away`;  // Middle items
+        }
+      });
 
 
     

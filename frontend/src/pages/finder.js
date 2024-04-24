@@ -247,7 +247,7 @@ export default function Finder() {
   return (
     <div className="w-full min-h-screen flex flex-col  text-white items-center">
       {isLoading && <LoadingPopup />}
-      <div className="w-[577px] font-inter my-60">
+      <div className="w-[650px] font-inter my-60">
         <div className="flex justify-between items-center gap-8">
           <span className="font-bold text-2xl">Search Algorithm</span>
           <div className="flex gap-2">
