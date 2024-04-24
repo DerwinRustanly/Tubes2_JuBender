@@ -7,6 +7,7 @@ import (
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/cache"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/models"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/services"
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,9 +44,20 @@ func BfsController(c *gin.Context) {
 		return
 	}
 	log.Printf("Received BFS request: %+v", req)
+	resp, err := http.Get(utils.WikipediaUrlDecode("https://en.wikipedia.org/wiki/" + req.Start))
+	if resp.StatusCode == http.StatusNotFound || err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Source article not found.", "details": "The specified article title does not exist on Wikipedia."})
+		return
+	}
+	resp, err = http.Get(utils.WikipediaUrlDecode("https://en.wikipedia.org/wiki/" + req.Target))
+	if resp.StatusCode == http.StatusNotFound || err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Destination article not found.", "details": "The specified article title does not exist on Wikipedia."})
+		return
+	}
 	bfsResult := services.HandleBFS(req.Start, req.Target)
 	response := wrapToResponse(bfsResult)
 	c.JSON(http.StatusOK, response)
+	cache.SaveCache()
 }
 
 func IdsController(c *gin.Context) {
@@ -56,6 +68,16 @@ func IdsController(c *gin.Context) {
 		return
 	}
 	log.Printf("Received IDS request: %+v", req)
+	resp, err := http.Get(utils.WikipediaUrlDecode("https://en.wikipedia.org/wiki/" + req.Start))
+	if resp.StatusCode == http.StatusNotFound || err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Source article not found.", "details": "The specified article title does not exist on Wikipedia."})
+		return
+	}
+	resp, err = http.Get(utils.WikipediaUrlDecode("https://en.wikipedia.org/wiki/" + req.Target))
+	if resp.StatusCode == http.StatusNotFound || err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Destination article not found.", "details": "The specified article title does not exist on Wikipedia."})
+		return
+	}
 	idsResult := services.HandleIDS(req.Start, req.Target)
 	response := wrapToResponse(idsResult)
 	c.JSON(http.StatusOK, response)

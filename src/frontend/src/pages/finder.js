@@ -26,6 +26,7 @@ export default function Finder() {
   const [noExactMatchSrc, setNoExactMatchSrc] = useState(false);
   const [noExactMatchDest, setNoExactMatchDest] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [NotFound, setNotFound] = useState('');
   const [resultData, setResultData] = useState({});
   const [graphData,setGraphData] = useState({});
   const graphContainerRef = useRef(null);
@@ -139,6 +140,7 @@ export default function Finder() {
   };
   const handleSearchBFS = async () => {
     setIsLoading(true);
+    setNotFound('');
     setResultData({});
     try {
       const response = await fetch(`http://localhost:8080/bfs`, {
@@ -151,7 +153,14 @@ export default function Finder() {
           destination: dest.replace(/ /g, "_"),
         }),
       });
+
+      
       const data = await response.json();
+      if (response.status == 404) {
+        setIsLoading(false)
+        setNotFound(data.error);
+      } 
+      
       // Handle the response data here, e.g., setting state to display the results
       setResultData(data);
       setGraphData(transformResultDataToGraphFormat(data));
@@ -165,6 +174,7 @@ export default function Finder() {
   };
   const handleSearchIDS = async () => {
     setIsLoading(true);
+    setNotFound('');
     setResultData({});
     try {
       const response = await fetch(`http://localhost:8080/ids`, {
@@ -178,6 +188,11 @@ export default function Finder() {
         }),
       });
       const data = await response.json();
+
+      if (response.status == 404) {
+        setIsLoading(false)
+        setNotFound(data.error);
+      } 
       // Handle the response data here, e.g., setting state to display the results
       setResultData(data);
       setGraphData(transformResultDataToGraphFormat(data));
@@ -419,12 +434,20 @@ export default function Finder() {
                     <div className="flex justify-center items-center text-5 bg-4 py-4 px-6 text-center rounded-xl">
                       <span className="text-xl font-bold">1</span>
                     </div>
-                    <div className="break-all text-3 text-lg">
+                    <div className="break-all text-3 font-bold text-lg">
                       {resultData.path.join(' → ')}
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+          )
+        }
+
+        {
+          NotFound.length > 0 && (
+            <div className="w-full text-lg flex items-center justify-center mt-4 font-bold">
+              {NotFound}
             </div>
           )
         }
