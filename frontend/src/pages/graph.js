@@ -45,6 +45,11 @@ function ForceGraph(
       "#BDB76B", 
      
     ];
+
+    const legendData = depthColorMapping.map((color, i) => ({
+      color,
+      depth: i
+    }));
     
   
     console.log(nodes);
@@ -78,6 +83,9 @@ function ForceGraph(
     // });
   
     // Compute default domains.
+
+    
+
     if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
   
     // Construct the scales.
@@ -85,7 +93,7 @@ function ForceGraph(
   
     // Construct the forces.
     const forceNode = d3.forceManyBody();
-    const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
+    const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]).distance(100);
     if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
     if (linkStrength !== undefined) forceLink.strength(linkStrength);
   
@@ -96,18 +104,47 @@ function ForceGraph(
       .force("center", d3.forceCenter())
       .force("repel", d3.forceManyBody().strength(-500)) // Negative strength results in repulsion
       .on("tick", ticked);
+
+    const zoom = d3.zoom()
+      .scaleExtent([1 / 4, 4])  // Limits the scale to between 0.25x and 4x
+      .on("zoom", (event) => {
+          container.attr("transform", event.transform);
+      });
   
     const svg = d3
       .create("svg")
       .attr("width", width)
       .attr("height", height)
       .attr("viewBox", [-width / 2, -height / 2, width, height])
-      .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+      .attr("style", "max-width: 100%; height: auto; height: intrinsic;")
+      .call(zoom);  // Apply the zoom behavior here;
   
+      // Create a container group to apply the transformations
+    const container = svg.append("g");
+
+    const legend = svg.append("g")
+      .attr("class", "legend")
+      .attr("transform", `translate(${width / 2 - 100}, ${-height / 2 + 20})`)  // Adjust position accordingly
+      .selectAll("g")
+      .data(legendData)
+      .enter().append("g");
+
+    legend.append("circle")
+      .attr("cx", 0)
+      .attr("cy", (d, i) => i * 25)  // Vertical spacing between items
+      .attr("r", 10)
+      .style("fill", d => d.color);
+
+    legend.append("text")
+      .attr("x", 20)  // Horizontal space after the circle
+      .attr("y", (d, i) => i * 25)  // Align text with circles
+      .attr("dy", "0.35em")  // Center text vertically
+      .text(d => `Depth ${d.depth}`);
+
+
     
     const labelPadding = 40; // Adjust this value to control the gap between the node and its label
-    const text = svg
-      .append("g")
+    const text =container.append("g")
       .attr("class", "labels")
       .selectAll("text")
       .data(nodes)
@@ -121,8 +158,7 @@ function ForceGraph(
       .style("fill", "#333")
       .style("text-anchor", "middle"); // Center the text horizontally
   
-    const link = svg
-      .append("g")
+    const link = container.append("g")
       .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
       .attr("stroke-opacity", linkStrokeOpacity)
       .attr(
@@ -134,11 +170,11 @@ function ForceGraph(
       .data(links)
       .join("line");
   
-      const node = svg.append("g")
+      const node = container.append("g")
       .selectAll("circle")
       .data(nodes)
       .join("circle")
-        .attr("r", nodeRadius)
+        .attr("r", (d,i) => (i === 0 || i === nodes.length - 1 ? 20 : 15))
         .attr("x", (d) => d.x)
         .attr("y", (d) => d.y)
         .attr("fill", d => depthColorMapping[d.depth] || "#999")
@@ -189,8 +225,8 @@ function ForceGraph(
   
       function dragended(event) {
         if (!event.active) simulation.alphaTarget(0);
-        // event.subject.fx = null;
-        // event.subject.fy = null;
+        event.subject.fx = null;
+        event.subject.fy = null;
       }
   
       return d3

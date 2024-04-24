@@ -179,6 +179,8 @@ export default function Finder() {
       });
       const data = await response.json();
       // Handle the response data here, e.g., setting state to display the results
+      setResultData(data);
+      setGraphData(transformResultDataToGraphFormat(data));
       console.log(data);
     } catch (error) {
       console.error("Error during search:", error);
@@ -194,7 +196,7 @@ export default function Finder() {
     // Iterate over the path to populate nodes and links
     resultData.path.forEach((nodeId, index) => {
       // Add or update the node in the map with its depth
-      nodesMap.set(nodeId, { id: nodeId, group: 1, depth: index });
+      nodesMap.set(nodeId, { id: nodeId, group: index, depth: index });
   
       // Create a link to the next node if there is one
       if (index < resultData.path.length - 1) {
