@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/DerwinRustanly/Tubes2_JuBender/backend/cache"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/models"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/utils"
 	"github.com/gocolly/colly/v2"
@@ -34,7 +35,7 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	fmt.Println("Encoded start:", startURL)
 	fmt.Println("Encoded target:", targetURL)
 	startTime := time.Now()
-	bfs(startURL, targetURL, &parentMap, &totalLinksSearched, &totalRequest)
+	bfs(startURL, targetURL, &parentMap, &cache.GlobalCache.Data, &totalLinksSearched, &totalRequest)
 	elapsed := time.Since(startTime)
 	return map[string]any{
 		"from":                utils.FormatToTitle(startTitle),
@@ -46,7 +47,7 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	}
 }
 
-func bfs(startURL string, targetURL string, parentMap *map[string]string, totalLinksSearched *int, totalRequest *int) {
+func bfs(startURL string, targetURL string, parentMap *map[string]string, cache *map[string][]string, totalLinksSearched *int, totalRequest *int) {
 	if startURL == targetURL {
 		(*parentMap)[targetURL] = startURL
 		*totalLinksSearched = 1
@@ -98,8 +99,11 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 		trimmedLink := strings.TrimPrefix(link, "https://en.wikipedia.org")
 		if strings.HasPrefix(trimmedLink, "/wiki/") && !excludeRegex.MatchString(trimmedLink) {
 			link = utils.WikipediaUrlEncode(link)
+			parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
+			mutex.Lock()
+			(*cache)[parentUrlEncoded] = append((*cache)[parentUrlEncoded], link)
+			mutex.Unlock()
 			if _, seen := visited.LoadOrStore(link, true); !seen {
-				parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
 				mutex.Lock()
 				*totalLinksSearched += 1
 				depth := findDepth(parentUrlEncoded) + 1
@@ -114,22 +118,54 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 					} else {
 						enqueue(article, &queue1)
 					}
+				}
 
-				}
-				if parentUrlEncoded == "https://en.wikipedia.org/wiki/Joko_Widodo" {
-					fmt.Println(link)
-				}
 				mutex.Unlock()
 				addParent(link, parentUrlEncoded)
 				if link == targetURL {
 					atomic.StoreInt32(&targetFound, 1)
 					fmt.Println(">> Found MINIMAL path at:", parentUrlEncoded)
 					fmt.Println(">  Target:", link)
-					return
 				}
 			}
 		}
 	})
+
+	getFromCache := func(parentUrl string) {
+		// fmt.Println("cache hit")
+		mutex.Lock()
+		cachedLinks := (*cache)[parentUrl]
+		mutex.Unlock()
+		for _, cachedLink := range cachedLinks {
+			if _, seen := visited.LoadOrStore(cachedLink, true); !seen {
+				mutex.Lock()
+				*totalLinksSearched += 1
+				depth := findDepth(parentUrl) + 1
+				mutex.Unlock()
+				mutex.Lock()
+				article := models.Article{Url: cachedLink, Depth: depth}
+				if depth == int(currentDepth) {
+					enqueue(article, runningQueue)
+				} else {
+					if runningQueue == &queue1 {
+						enqueue(article, &queue2)
+					} else {
+						enqueue(article, &queue1)
+					}
+
+				}
+
+				mutex.Unlock()
+				addParent(cachedLink, parentUrl)
+				if cachedLink == targetURL {
+					atomic.StoreInt32(&targetFound, 1)
+					fmt.Println(">> Found MINIMAL path at:", parentUrl)
+					fmt.Println(">  Target:", cachedLink)
+					return
+				}
+			}
+		}
+	}
 
 	// Init
 	runningQueue = &queue1
@@ -145,7 +181,9 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				if atomic.LoadInt32(&targetFound) == 1 {
 					return
 				}
-				article, ok := dequeue(runningQueue)
+
+				nextArticle, ok := dequeue(runningQueue)
+				encodedNextUrl := utils.WikipediaUrlEncode(nextArticle.Url)
 
 				if !ok {
 					time.Sleep(100 * time.Millisecond)
@@ -163,11 +201,20 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, totalL
 				}
 				mutex.Unlock()
 
+				visited.Store(encodedNextUrl, true)
+
 				mutex.Lock()
-				*totalRequest += 1
+				_, cached := (*cache)[encodedNextUrl]
 				mutex.Unlock()
-				visited.Store(utils.WikipediaUrlEncode(article.Url), true)
-				c.Visit(utils.WikipediaUrlDecode(article.Url))
+
+				if cached {
+					getFromCache(encodedNextUrl)
+				} else {
+					mutex.Lock()
+					*totalRequest += 1
+					mutex.Unlock()
+					c.Visit(utils.WikipediaUrlDecode(encodedNextUrl))
+				}
 			}
 		}()
 	}
