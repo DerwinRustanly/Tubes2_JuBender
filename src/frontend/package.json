@@ -16,7 +16,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "start": "react-scripts start",
     "backend": "cd ../backend && go run main.go && go mod tidy",
     "frontend": "react-scripts start",
     "build": "react-scripts build",
