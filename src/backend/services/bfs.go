@@ -82,6 +82,24 @@ func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string
 		colly.AllowedDomains("en.wikipedia.org"),
 	)
 
+	gocollyIsDisplayed := func(e *colly.HTMLElement) bool {
+		class := e.Attr("class")
+		class = strings.ReplaceAll(class, " ", "")
+		if strings.Contains(class, "nowraplinks") {
+			return false
+		}
+
+		for parent := e.DOM.Parent(); parent.Length() != 0; parent = parent.Parent() {
+
+			parentClass, found := parent.Attr("class")
+			parentClass = strings.ReplaceAll(parentClass, " ", "")
+			if found && strings.Contains(parentClass, "nowraplinks") {
+				return false
+			}
+		}
+		return true
+	}
+
 	enqueue := func(article models.Article, queue *chan models.Article) {
 		*queue <- article
 	}
@@ -107,11 +125,15 @@ func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string
 	})
 
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		if !gocollyIsDisplayed(e) {
+			return
+		}
 		link := e.Request.AbsoluteURL(e.Attr("href"))
 		trimmedLink := strings.TrimPrefix(link, "https://en.wikipedia.org")
 		if strings.HasPrefix(trimmedLink, "/wiki/") && !excludeRegex.MatchString(trimmedLink) {
 			link = utils.WikipediaUrlEncode(link)
 			parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
+
 			mutex.Lock()
 			(*cache)[parentUrlEncoded] = append((*cache)[parentUrlEncoded], link)
 			mutex.Unlock()

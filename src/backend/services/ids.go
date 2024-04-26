@@ -75,10 +75,15 @@ func scrapArticles(url string, cache *map[string][]string, total_scrap_request *
 	seenLinks := make(map[string]bool)
 	var links []string
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+		if !goqueryIsDisplayed(s) {
+			return
+		}
+
 		link, exists := s.Attr("href")
 		if !exists || !strings.HasPrefix(link, "/wiki") || excludeRegex.MatchString(link) {
 			return
 		}
+		fmt.Println(link)
 		link = utils.WikipediaUrlEncode("https://en.wikipedia.org" + link)
 		if _, seen := seenLinks[link]; !seen {
 			seenLinks[link] = true
@@ -89,6 +94,33 @@ func scrapArticles(url string, cache *map[string][]string, total_scrap_request *
 	(*cache)[utils.WikipediaUrlEncode(url)] = links
 	*total_scrap_request += 1
 	return links
+}
+
+func goqueryIsDisplayed(s *goquery.Selection) bool {
+	class, _ := s.Attr("class")
+	class = strings.ReplaceAll(class, " ", "")
+	if strings.Contains(class, "nowraplinks") {
+		return false
+	}
+
+	var isVisible bool = true
+	for parents := s.Parents(); parents.Length() != 0; parents = parents.Parents() {
+		parents.EachWithBreak(func(i int, parent *goquery.Selection) bool {
+			parentClass, found := parent.Attr("class")
+			if found {
+				parentClass = strings.ReplaceAll(parentClass, " ", "")
+				if strings.Contains(parentClass, "nowraplinks") {
+					isVisible = false
+					return false
+				}
+			}
+			return true
+		})
+		if !isVisible {
+			return false
+		}
+	}
+	return true
 }
 
 func wrapToArticle(parent models.Article, child []string, parentMap *map[string][]string) []models.Article {
