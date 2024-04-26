@@ -443,13 +443,13 @@ export default function Finder() {
         <div className="flex gap-[5px] justify-center">
         <button
           className="bg-4 text-5  w-full flex justify-center px-4 py-2 rounded-xl font-bold"
-          onClick={algo === "BFS" ? handleSearchBFS(false) : handleSearchIDS(false)}
+          onClick={algo === "BFS" ? () => handleSearchBFS(false) : () => handleSearchIDS(false)}
         >
           Search Single Path
         </button>
         <button
           className="bg-4 text-5 w-full flex justify-center px-4 py-2 rounded-xl font-bold"
-          onClick={algo === "BFS" ? handleSearchBFS(true) : handleSearchIDS(true)}
+          onClick={algo === "BFS" ? () => handleSearchBFS(true) : () => handleSearchIDS(true)}
         >
           Search Multiple Path
         </button>
