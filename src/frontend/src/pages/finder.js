@@ -30,6 +30,7 @@ export default function Finder() {
   const [resultData, setResultData] = useState({});
   const [graphData,setGraphData] = useState({});
   const [pageDetail, setPageDetail] = useState([]);
+  const [doneFetchImage,setDoneFetchImage] = useState(false);
   const graphContainerRef = useRef(null);
   useEffect(() => {
     if (isLoading) {
@@ -145,37 +146,49 @@ export default function Finder() {
     }
   };
 
+
+
   const fetchWikipediaSummaryAndThumbnails = (titles) => {
-    const requests = titles.map(title => {
-      const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
-      return fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          return {
-            title: title,
-            imageUrl: data.thumbnail ? data.thumbnail.source : null,
-            description: data.description,
-            pageUrl: data.content_urls ? data.content_urls.desktop.page : null
-          };
-        })
-        .catch(error => {
-          console.error("Error fetching page summary and thumbnail for:", title, error);
-          return {
-            title: title,
-            imageUrl: null,
-            description: 'No description available.',
-            pageUrl: null
-          };
-        });
+    setDoneFetchImage(false);
+    setPageDetail([]);
+    const requests = titles.map(innerArray => {
+      return Promise.all(innerArray.map(title => {
+        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+        return fetch(url)
+          .then(response => response.json())
+          .then(data => {
+            return {
+              title: title,
+              imageUrl: data.thumbnail ? data.thumbnail.source : null,
+              description: data.description,
+              pageUrl: data.content_urls ? data.content_urls.desktop.page : null
+            };
+          })
+          .catch(error => {
+            console.error("Error fetching page summary and thumbnail for:", title, error);
+            return {
+              title: title,
+              imageUrl: null,
+              description: 'No description available.',
+              pageUrl: null
+            };
+          });
+      }));
     });
   
-    Promise.all(requests).then(pageDetails => {
+    Promise.all(requests.flat()).then(pageDetails => {
+      console.log(pageDetails);
       setPageDetail(pageDetails);
+      setDoneFetchImage(true);
     });
+
+    
+    console.log("halo");
   };
   
+  
   const handleSearchBFS = async (multiple) => {
-    
+    console.log(multiple);
     setNotFound('');
     setResultData({});
 
@@ -212,10 +225,10 @@ export default function Finder() {
       
       // Handle the response data here, e.g., setting state to display the results
       setResultData(data);
+      console.log(data);
       fetchWikipediaSummaryAndThumbnails(data.path);
       setGraphData(transformResultDataToGraphFormat(data));
       console.log(data);
-      console.log(Array.isArray(data));
     } catch (error) {
       console.error("Error during search:", error);
     } finally {
@@ -257,26 +270,34 @@ export default function Finder() {
     }
   };
 
+
+
   const transformResultDataToGraphFormat = (resultData) => {
     let nodesMap = new Map(); // Use a Map to easily update node information
     const links = [];
   
     // Iterate over the path to populate nodes and links
-    resultData.path.forEach((nodeId, index) => {
-      // Add or update the node in the map with its depth
-      nodesMap.set(nodeId, { id: nodeId, group: index, depth: index });
+    resultData.path.forEach((elmt, depth) => {
+      elmt.forEach((nodeId, idx) => {
+        if (!nodesMap.has(nodeId)) {
+          nodesMap.set(nodeId, { id: nodeId, group: idx, depth: idx });
+        } else {
+          // Update depth if node already exists
+          const node = nodesMap.get(nodeId);
+          node.depth = Math.min(node.depth, idx);
+          nodesMap.set(nodeId, node);
+        }
   
-      // Create a link to the next node if there is one
-      if (index < resultData.path.length - 1) {
-        links.push({
-          source: nodeId,
-          target: resultData.path[index + 1],
-          value: 1, // Assign any value as needed
-        });
-      }
+        // Create a link to the next node if there is one
+        if (idx < elmt.length - 1) {
+          links.push({
+            source: nodeId,
+            target: elmt[idx + 1],
+            value: 1, // Assign any value as needed
+          });
+        }
+      });
     });
-
-    
   
     // Convert the map of unique nodes into an array format
     const nodes = Array.from(nodesMap.values());
@@ -284,33 +305,7 @@ export default function Finder() {
     console.log(nodes);
     return { nodes, links };
   };
-
-  useEffect(() => {
-    if (!graphContainerRef.current || !graphData.nodes || !graphData.links) {
-      return;
-    }
   
-    // Clear previous SVG content
-    graphContainerRef.current.innerHTML = '';
-  
-    // Generate the graph with the updated data
-    const forceGraph = ForceGraph({
-      nodes: graphData.nodes,
-      links: graphData.links,
-      // other configurations as needed
-    }, {
-      // configuration object (if needed)
-    });
-  
-    // Append the new graph to the container
-    graphContainerRef.current.appendChild(forceGraph);
-  
-    // Cleanup function to stop the simulation when the component unmounts
-    return () => {
-      // Any cleanup logic for the force graph
-    };
-  }, [graphData]);
-
   
   return (
     <div className="w-full min-h-screen flex flex-col  text-white items-center">
@@ -459,7 +454,7 @@ export default function Finder() {
           resultData.path && resultData.path.length > 0 && (
             <div>
               <div className="w-full flex flex-col gap-2 text-lg font-bold text-white mt-3 px-1">
-                <span>Found 1 paths with depth of {resultData.path.length - 1 }</span>
+                <span>Found {resultData.path.length} paths with depth of {resultData.path[0].length - 1 }</span>
                 <div className="w-full flex flex-row justify-between items-center">
                   <div className="text-3">Algorithm</div>
                   <div>{algo}</div>
@@ -486,7 +481,9 @@ export default function Finder() {
                 </div>
               </div>
 
-              <div ref={graphContainerRef} className="w-full h-96 rounded-xl bg-white mt-4"></div>
+              <div className="w-full h-[500px] rounded-xl bg-white mt-4">
+                <ForceGraph nodes={graphData.nodes} links={graphData.links} />
+              </div>
 
               {/* <div className="mt-8 w-full">
                 <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
@@ -504,24 +501,50 @@ export default function Finder() {
 
               <div className="w-full p-4">
                 <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
-                <div className="flex flex-col rounded-lg border">
-                  {pageDetail.map((page, index) => (
-                    <a href={page.pageUrl} target="_blank" rel="noopener noreferrer" className="">
-                      <div key={index} className="p-4 border-b  flex flex-row gap-4">
-                        {page.imageUrl? (
-                          <img src={page.imageUrl} alt={page.title} className="w-20 h-20 object-cover" />
-                        ):(
-                          <img src="not-found-image.jpeg" alt={page.title} className="w-20 h-20 object-cover" />
-                        )}
-                        <div className="flex flex-col justify-center">
-                          <h3 className="text-xl font-bold">{page.title}</h3>
-                          
-                          <p className="text-3 font-bold">{page.description}</p>
-                          
-                        </div>
+                <div className="w-full flex flex-row gap-4 flex-wrap items-center justify-center">
+                  {doneFetchImage ? (
+                    <>
+                    {pageDetail.map((elmt, index) => (
+                      <div key={index} className="flex flex-col rounded-lg border w-[300px]">
+                        {elmt.map((page, idx) => (
+                          <a href={page.pageUrl} target="_blank" rel="noopener noreferrer" className="" key={idx}>
+                            <div className="p-4 border-b flex flex-row gap-4 items-center">
+                              {page.imageUrl ? (
+                                <img src={page.imageUrl} alt={page.title} className="w-10 h-10 object-cover" />
+                              ) : (
+                                <img src="not-found-image.jpeg" alt={page.title} className="w-10 h-10 object-cover" />
+                              )}
+                              <div className="flex flex-col justify-center gap-2">
+                                <h3 className="text-lg font-bold leading-4">{page.title}</h3>
+                                <p className="text-3 font-bold text-sm leading-3">{page.description}</p>
+                              </div>
+                            </div>
+                          </a>
+                        ))}
                       </div>
-                      </a>
-                  ))}
+                    ))}
+                  </>
+                  
+                  ):(
+                    <>
+                      {resultData.path.map((elmt, index) => (
+                        <div key={index} className="flex flex-col rounded-lg border w-[300px]">
+                          {elmt.map((page, idx) => (
+                            <a href={`https://en.wikipedia.org/wiki/${page}`} target="_blank" rel="noopener noreferrer" className="" key={idx}>
+                              <div className="p-4 border-b flex flex-row gap-4 items-center">
+                                
+                                  <img src="not-found-image.jpeg" alt={page.title} className="w-10 h-10 object-cover" />
+                                
+                                <div className="flex flex-col justify-center">
+                                  <h3 className="text-lg font-bold leading-4">{page}</h3>
+                                </div>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      ))}
+                    </>)}
+                  
                 </div>
               </div>
             </div>
