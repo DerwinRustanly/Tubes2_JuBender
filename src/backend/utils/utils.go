@@ -31,3 +31,7 @@ func WikipediaUrlDecode(url string) string {
 func WikipediaUrlEncode(url string) string {
 	return "https://en.wikipedia.org/wiki/" + EncodeToPercent(strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/"))
 }
+
+func TrimUrl(url string) string {
+	return strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/")
+}

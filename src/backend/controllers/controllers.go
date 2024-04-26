@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -57,6 +58,7 @@ func BfsController(c *gin.Context) {
 	bfsResult := services.HandleBFS(req.Start, req.Target, req.Multiple)
 	response := wrapToResponse(bfsResult)
 	c.JSON(http.StatusOK, response)
+	fmt.Println("Total path:", len(response.Path))
 	cache.SaveCache()
 }
 
@@ -81,5 +83,6 @@ func IdsController(c *gin.Context) {
 	idsResult := services.HandleIDS(req.Start, req.Target, req.Multiple)
 	response := wrapToResponse(idsResult)
 	c.JSON(http.StatusOK, response)
+	fmt.Println("Total path:", len(response.Path))
 	cache.SaveCache()
 }

@@ -48,10 +48,12 @@ func ids(startURL, targetURL string, multiple bool, parentMap *map[string][]stri
 }
 
 func scrapArticles(url string, cache *map[string][]string, total_scrap_request *int, excludeRegex *regexp.Regexp) []string {
-	url = utils.WikipediaUrlEncode(url)
-	if links, found := (*cache)[url]; found {
-		// fmt.Println("Cache Hit")
-		return links
+	if links, found := (*cache)[utils.TrimUrl(url)]; found {
+		var fullUrls []string
+		for i := range links {
+			fullUrls = append(fullUrls, "https://en.wikipedia.org/wiki/"+links[i])
+		}
+		return fullUrls
 	}
 
 	res, err := http.Get(url)
@@ -74,6 +76,7 @@ func scrapArticles(url string, cache *map[string][]string, total_scrap_request *
 
 	seenLinks := make(map[string]bool)
 	var links []string
+	var trimmedLinks []string
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
 		if !goqueryIsDisplayed(s) {
 			return
@@ -83,15 +86,22 @@ func scrapArticles(url string, cache *map[string][]string, total_scrap_request *
 		if !exists || !strings.HasPrefix(link, "/wiki") || excludeRegex.MatchString(link) {
 			return
 		}
-		fmt.Println(link)
+
 		link = utils.WikipediaUrlEncode("https://en.wikipedia.org" + link)
 		if _, seen := seenLinks[link]; !seen {
 			seenLinks[link] = true
 			links = append(links, link)
+			trimmedUrl := utils.TrimUrl(link)
+			// fmt.Println(trimmedUrl)
+			trimmedLinks = append(trimmedLinks, trimmedUrl)
 		}
 	})
 
-	(*cache)[utils.WikipediaUrlEncode(url)] = links
+	if utils.TrimUrl(url) == "Duck" {
+		println(trimmedLinks[2])
+	}
+
+	(*cache)[utils.TrimUrl(utils.WikipediaUrlEncode(url))] = trimmedLinks
 	*total_scrap_request += 1
 	return links
 }
@@ -146,7 +156,7 @@ func dls(startURL string, targetURL string, limit int, multiple bool, checkMap *
 
 	for len(stack) > 0 {
 		nextArticle := stack[len(stack)-1]
-		nextURL := nextArticle.Url
+		nextURL := utils.WikipediaUrlEncode(nextArticle.Url)
 		stack = stack[:len(stack)-1]
 
 		if _, seen := (visited)[nextURL]; seen {

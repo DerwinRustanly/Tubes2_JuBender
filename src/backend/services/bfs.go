@@ -135,7 +135,7 @@ func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string
 			parentUrlEncoded := utils.WikipediaUrlEncode(e.Request.URL.String())
 
 			mutex.Lock()
-			(*cache)[parentUrlEncoded] = append((*cache)[parentUrlEncoded], link)
+			(*cache)[utils.TrimUrl(parentUrlEncoded)] = append((*cache)[utils.TrimUrl(parentUrlEncoded)], utils.TrimUrl(link))
 			mutex.Unlock()
 			if _, seen := visited.LoadOrStore(link, true); !seen {
 				mutex.Lock()
@@ -177,9 +177,10 @@ func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string
 		// fmt.Println("cache hit")
 		parentUrl = utils.WikipediaUrlEncode(parentUrl)
 		mutex.Lock()
-		cachedLinks := (*cache)[parentUrl]
+		cachedLinks := (*cache)[utils.TrimUrl(parentUrl)]
 		mutex.Unlock()
 		for _, cachedLink := range cachedLinks {
+			cachedLink = "https://en.wikipedia.org/wiki/" + cachedLink
 			if _, seen := visited.LoadOrStore(cachedLink, true); !seen {
 				mutex.Lock()
 				*totalLinksSearched += 1
@@ -258,7 +259,7 @@ func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string
 				visited.Store(encodedNextUrl, true)
 
 				mutex.Lock()
-				_, cached := (*cache)[encodedNextUrl]
+				_, cached := (*cache)[utils.TrimUrl(encodedNextUrl)]
 				mutex.Unlock()
 
 				if cached {
