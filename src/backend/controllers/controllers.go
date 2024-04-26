@@ -30,7 +30,7 @@ func wrapToResponse(result map[string]any) models.Response {
 		Start:             result["from"].(string),
 		Target:            result["to"].(string),
 		Time:              int(result["time_ms"].(int64)),
-		Path:              result["path"].([]string),
+		Path:              result["path"].([][]string),
 		TotalLinkSearched: result["total_link_searched"].(int),
 		TotalScrapRequest: result["total_scrap_request"].(int),
 	}
@@ -54,7 +54,7 @@ func BfsController(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Destination article not found.", "details": "The specified article title does not exist on Wikipedia."})
 		return
 	}
-	bfsResult := services.HandleBFS(req.Start, req.Target)
+	bfsResult := services.HandleBFS(req.Start, req.Target, req.Multiple)
 	response := wrapToResponse(bfsResult)
 	c.JSON(http.StatusOK, response)
 	cache.SaveCache()
@@ -78,7 +78,7 @@ func IdsController(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Destination article not found.", "details": "The specified article title does not exist on Wikipedia."})
 		return
 	}
-	idsResult := services.HandleIDS(req.Start, req.Target)
+	idsResult := services.HandleIDS(req.Start, req.Target, req.Multiple)
 	response := wrapToResponse(idsResult)
 	c.JSON(http.StatusOK, response)
 	cache.SaveCache()

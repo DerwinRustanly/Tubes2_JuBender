@@ -14,20 +14,30 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
-func unwrapParentMap(targetURL string, parentMap *map[string]string) []string {
-	unwrappedPath := []string{}
-	for url := targetURL; url != ""; url = (*parentMap)[url] {
-		trimmedLink := strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/")
-		unwrappedPath = append([]string{utils.FormatToTitle(trimmedLink)}, unwrappedPath...)
-		if url == (*parentMap)[url] {
-			break
+func unwrapParentMap(targetURL string, parentMap *map[string][]string) [][]string {
+	var unwrappedPath [][]string
+	seenPaths := make(map[string]bool)
+	for _, unwrapURL := range (*parentMap)[targetURL] {
+		tempPath := []string{utils.FormatToTitle(strings.TrimPrefix(targetURL, "https://en.wikipedia.org/wiki/"))}
+		fullPath := ""
+		for url := unwrapURL; url != ""; url = (*parentMap)[url][0] {
+			trimmedLink := strings.TrimPrefix(url, "https://en.wikipedia.org/wiki/")
+			tempPath = append([]string{utils.FormatToTitle(trimmedLink)}, tempPath...)
+			fullPath = utils.FormatToTitle(trimmedLink) + fullPath
+			if url == (*parentMap)[url][0] {
+				break
+			}
+		}
+		if _, exists := seenPaths[fullPath]; !exists {
+			unwrappedPath = append(unwrappedPath, tempPath)
+			seenPaths[fullPath] = true
 		}
 	}
 	return unwrappedPath
 }
 
-func HandleBFS(startTitle string, targetTitle string) map[string]any {
-	parentMap := make(map[string]string)
+func HandleBFS(startTitle string, targetTitle string, multiple bool) map[string]any {
+	parentMap := make(map[string][]string)
 	totalLinksSearched := 0
 	totalRequest := 0
 	startURL := "https://en.wikipedia.org/wiki/" + utils.EncodeToPercent(startTitle)
@@ -35,7 +45,7 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	fmt.Println("Encoded start:", startURL)
 	fmt.Println("Encoded target:", targetURL)
 	startTime := time.Now()
-	bfs(startURL, targetURL, &parentMap, &cache.GlobalCache.Data, &totalLinksSearched, &totalRequest)
+	bfs(startURL, targetURL, multiple, &parentMap, &cache.GlobalCache.Data, &totalLinksSearched, &totalRequest)
 	elapsed := time.Since(startTime)
 	return map[string]any{
 		"from":                utils.FormatToTitle(startTitle),
@@ -47,9 +57,9 @@ func HandleBFS(startTitle string, targetTitle string) map[string]any {
 	}
 }
 
-func bfs(startURL string, targetURL string, parentMap *map[string]string, cache *map[string][]string, totalLinksSearched *int, totalRequest *int) {
+func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string][]string, cache *map[string][]string, totalLinksSearched *int, totalRequest *int) {
 	if startURL == targetURL {
-		(*parentMap)[targetURL] = startURL
+		(*parentMap)[targetURL] = []string{startURL}
 		*totalLinksSearched = 1
 		return
 	}
@@ -61,6 +71,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 	queue2 := make(chan models.Article, 7000000)
 	var mutex sync.Mutex
 	var targetFound int32
+	var depthFound int32
 	var wg sync.WaitGroup
 	var currentDepth int32
 	var runningQueue *chan models.Article
@@ -82,12 +93,13 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 
 	addParent := func(url string, parentURL string) {
 		mutex.Lock()
-		(*parentMap)[url] = parentURL
+		(*parentMap)[url] = append((*parentMap)[url], parentURL)
 		mutex.Unlock()
 	}
 
 	findDepth := func(url string) int {
-		return len(unwrapParentMap(url, parentMap)) - 1
+		d := len(unwrapParentMap(url, parentMap)[0]) - 1
+		return d
 	}
 
 	c.OnError(func(r *colly.Response, err error) {
@@ -121,9 +133,17 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 				}
 
 				mutex.Unlock()
+				if atomic.LoadInt32(&targetFound) == 1 && !multiple {
+					return
+				}
 				addParent(link, parentUrlEncoded)
 				if link == targetURL {
-					atomic.StoreInt32(&targetFound, 1)
+					if atomic.LoadInt32(&targetFound) == 0 {
+						atomic.StoreInt32(&depthFound, int32(depth-1))
+						atomic.StoreInt32(&targetFound, 1)
+						fmt.Println(depth - 1)
+					}
+					visited.Delete(link)
 					fmt.Println(">> Found MINIMAL path at:", parentUrlEncoded)
 					fmt.Println(">  Target:", link)
 				}
@@ -133,6 +153,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 
 	getFromCache := func(parentUrl string) {
 		// fmt.Println("cache hit")
+		parentUrl = utils.WikipediaUrlEncode(parentUrl)
 		mutex.Lock()
 		cachedLinks := (*cache)[parentUrl]
 		mutex.Unlock()
@@ -152,16 +173,22 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 					} else {
 						enqueue(article, &queue1)
 					}
-
 				}
 
 				mutex.Unlock()
+				if atomic.LoadInt32(&targetFound) == 1 && !multiple {
+					return
+				}
 				addParent(cachedLink, parentUrl)
 				if cachedLink == targetURL {
-					atomic.StoreInt32(&targetFound, 1)
+					if atomic.LoadInt32(&targetFound) == 0 {
+						atomic.StoreInt32(&depthFound, int32(depth-1))
+						atomic.StoreInt32(&targetFound, 1)
+						fmt.Println(depth - 1)
+					}
+					visited.Delete(cachedLink)
 					fmt.Println(">> Found MINIMAL path at:", parentUrl)
 					fmt.Println(">  Target:", cachedLink)
-					return
 				}
 			}
 		}
@@ -178,12 +205,16 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 		go func() {
 			defer wg.Done()
 			for {
-				if atomic.LoadInt32(&targetFound) == 1 {
+				if atomic.LoadInt32(&targetFound) == 1 && !multiple {
+					return
+				}
+
+				if atomic.LoadInt32(&targetFound) == 1 && atomic.LoadInt32(&currentDepth) > atomic.LoadInt32(&depthFound) {
 					return
 				}
 
 				nextArticle, ok := dequeue(runningQueue)
-				encodedNextUrl := utils.WikipediaUrlEncode(nextArticle.Url)
+				encodedNextUrl := nextArticle.Url
 
 				if !ok {
 					time.Sleep(100 * time.Millisecond)
@@ -198,6 +229,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 						runningQueue = &queue1
 					}
 					atomic.AddInt32(&currentDepth, 1)
+					fmt.Println("current depth", currentDepth)
 				}
 				mutex.Unlock()
 
@@ -213,7 +245,7 @@ func bfs(startURL string, targetURL string, parentMap *map[string]string, cache 
 					mutex.Lock()
 					*totalRequest += 1
 					mutex.Unlock()
-					c.Visit(utils.WikipediaUrlDecode(encodedNextUrl))
+					c.Visit(encodedNextUrl)
 				}
 			}
 		}()
