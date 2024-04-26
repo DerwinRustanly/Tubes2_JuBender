@@ -16,8 +16,7 @@ WikiRace atau Wiki Game adalah permainan yang melibatkan Wikipedia, sebuah ensik
 Repositori ini berisi implementasi algoritma BFS (Breadth-First Search) dan (Iterative Deepening Search) untuk menentukan rute terpendek di antara kedua artikel wikipedia dengan aplikasi yang berbasis website dengan algoritma dalam bahasa pemrograman Go. Adapun kakas pembuatan aplikasi berbasis website yang akan digunakan meliputi React yang merupakan framework dari bahasa pemrograman Javascript.
 
 ## Requirements Program
-- Node.js (https://nodejs.org/en) 
-- Go (https://go.dev/doc/install)
+- Docker Dekstop (https://www.docker.com/products/docker-desktop/)
 
 ## Set Up dan Build Program
 1. Silahkan lakukan clone repositori ini dengan cara menjalankan perintah berikut pada terminal
@@ -25,22 +24,16 @@ Repositori ini berisi implementasi algoritma BFS (Breadth-First Search) dan (Ite
     git clone https://github.com/DerwinRustanly/Tubes2_JuBender.git
     ```
 
-2. Jalankan perintah berikut pada terminal untuk memasuki root directory program
+
+2.  Jalankan perintah berikut pada terminal untuk menjalankan website
     ```
-    cd ./Tubes2_JuBender
+    docker-compose up --build
     ```
 
-3. Setelah pengguna berada pada root directory, jalankan perintah berikut pada terminal
+3. Jalankan browser dan buka laman untuk menjalankan website
     ```
-    cd src/frontend
+    localhost:3000
     ```
-
-4.  Jalankan perintah berikut untuk menjalankan website
-    ```
-    npm i
-    npm run start
-    ```
-
 5. Setelah pengguna berhasil menjalankan website, pengguna dapat memilih algoritma pencarian, baik dengan menggunakan algoritma BFS maupun IDS. 
 6. Setelah pengguna memilih algoritma pencarian, pengguna menuliskan judul artikel Wikipedia asal dan tujuan, program juga akan memberikan rekomendasi artikel Wikipedia berdasarkan judul yang dimasukkan oleh pengguna.
 7. Program akan menampilkan rute terpendek antara kedua artikel dalam bentuk visualisasi graf, beserta waktu eksekusi, jumlah artikel yang dilalui, beserta kedalaman pencarian.
