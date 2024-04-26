@@ -174,7 +174,7 @@ export default function Finder() {
     });
   };
   
-  const handleSearchBFS = async () => {
+  const handleSearchBFS = async (multiple) => {
     
     setNotFound('');
     setResultData({});
@@ -198,6 +198,7 @@ export default function Finder() {
         body: JSON.stringify({
           source: source.replace(/ /g, "_"),
           destination: dest.replace(/ /g, "_"),
+          multiple: multiple
         }),
       });
 
@@ -221,7 +222,7 @@ export default function Finder() {
       setIsLoading(false);
     }
   };
-  const handleSearchIDS = async () => {
+  const handleSearchIDS = async (multiple) => {
     setIsLoading(true);
     setNotFound('');
     setResultData({});
@@ -234,6 +235,7 @@ export default function Finder() {
         body: JSON.stringify({
           source: source.replace(/ /g, "_"),
           destination: dest.replace(/ /g, "_"),
+          multiple: multiple
         }),
       });
       const data = await response.json();
@@ -438,12 +440,20 @@ export default function Finder() {
             </span>
           </div>
         </div>
+        <div className="flex gap-[5px] justify-center">
         <button
-          className="bg-4 w-full text-5 flex justify-center px-4 py-2 rounded-xl font-bold"
-          onClick={algo === "BFS" ? handleSearchBFS : handleSearchIDS}
+          className="bg-4 text-5  w-full flex justify-center px-4 py-2 rounded-xl font-bold"
+          onClick={algo === "BFS" ? handleSearchBFS(false) : handleSearchIDS(false)}
         >
-          Search Path
+          Search Single Path
         </button>
+        <button
+          className="bg-4 text-5 w-full flex justify-center px-4 py-2 rounded-xl font-bold"
+          onClick={algo === "BFS" ? handleSearchBFS(true) : handleSearchIDS(true)}
+        >
+          Search Multiple Path
+        </button>
+        </div>
         
         {
           resultData.path && resultData.path.length > 0 && (
