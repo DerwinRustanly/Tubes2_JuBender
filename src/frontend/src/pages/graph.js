@@ -189,7 +189,12 @@ function ForceGraph(
         .attr("stroke", nodeStroke)
         .attr("stroke-opacity", nodeStrokeOpacity)
         .attr("stroke-width", nodeStrokeWidth)
+        .on("click", (event, d) => { // Adding click event listener
+          const url = `https://en.wikipedia.org/wiki/${d.id.replace(/ /g, "_")}`; // Create URL and replace spaces
+          window.open(url, '_blank'); // Open the URL in a new tab
+        })
         .call(drag(simulation));
+        
   
     if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
     if (L) link.attr("stroke", ({ index: i }) => L[i]);

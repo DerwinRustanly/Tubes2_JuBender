@@ -29,6 +29,7 @@ export default function Finder() {
   const [NotFound, setNotFound] = useState('');
   const [resultData, setResultData] = useState({});
   const [graphData,setGraphData] = useState({});
+  const [pageDetail, setPageDetail] = useState([]);
   const graphContainerRef = useRef(null);
   useEffect(() => {
     if (isLoading) {
@@ -75,6 +76,11 @@ export default function Finder() {
       fetchSourceSuggestions(value); // Fetch suggestions with debouncing
     }
   };
+
+
+
+// Example usage:
+
 
   const fetchSourceSuggestions = useCallback(debounce((value) => {
     // Update state to indicate typing has stopped
@@ -138,10 +144,51 @@ export default function Finder() {
       fetchDestSuggestions(value); // Fetch suggestions with debouncing
     }
   };
+
+  const fetchWikipediaSummaryAndThumbnails = (titles) => {
+    const requests = titles.map(title => {
+      const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+      return fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          return {
+            title: title,
+            imageUrl: data.thumbnail ? data.thumbnail.source : null,
+            description: data.description,
+            pageUrl: data.content_urls ? data.content_urls.desktop.page : null
+          };
+        })
+        .catch(error => {
+          console.error("Error fetching page summary and thumbnail for:", title, error);
+          return {
+            title: title,
+            imageUrl: null,
+            description: 'No description available.',
+            pageUrl: null
+          };
+        });
+    });
+  
+    Promise.all(requests).then(pageDetails => {
+      setPageDetail(pageDetails);
+    });
+  };
+  
   const handleSearchBFS = async () => {
-    setIsLoading(true);
+    
     setNotFound('');
     setResultData({});
+
+    if (!source.trim()) {
+      alert("Source cannot be empty.");
+      return;
+    }
+
+    if (!dest.trim()){
+      alert("Destination cannot be empty.");
+      return;
+    }
+    setIsLoading(true);
     try {
       const response = await fetch(`http://localhost:8080/bfs`, {
         method: "POST",
@@ -159,10 +206,12 @@ export default function Finder() {
       if (response.status == 404) {
         setIsLoading(false)
         setNotFound(data.error);
+        return;
       } 
       
       // Handle the response data here, e.g., setting state to display the results
       setResultData(data);
+      fetchWikipediaSummaryAndThumbnails(data.path);
       setGraphData(transformResultDataToGraphFormat(data));
       console.log(data);
       console.log(Array.isArray(data));
@@ -192,9 +241,11 @@ export default function Finder() {
       if (response.status == 404) {
         setIsLoading(false)
         setNotFound(data.error);
+        return;
       } 
       // Handle the response data here, e.g., setting state to display the results
       setResultData(data);
+      fetchWikipediaSummaryAndThumbnails(data.path);
       setGraphData(transformResultDataToGraphFormat(data));
       console.log(data);
     } catch (error) {
@@ -427,7 +478,7 @@ export default function Finder() {
 
               <div ref={graphContainerRef} className="w-full h-96 rounded-xl bg-white mt-4"></div>
 
-              <div className="mt-8 w-full">
+              {/* <div className="mt-8 w-full">
                 <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
                 <div className="w-full pt-4 flex flex-col gap-2">
                   <div className="w-full flex flex-row items-center mb-2 gap-4">
@@ -438,6 +489,29 @@ export default function Finder() {
                       {resultData.path.join(' → ')}
                     </div>
                   </div>
+                </div>
+              </div> */}
+
+              <div className="w-full p-4">
+                <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
+                <div className="flex flex-col rounded-lg border">
+                  {pageDetail.map((page, index) => (
+                    <a href={page.pageUrl} target="_blank" rel="noopener noreferrer" className="">
+                      <div key={index} className="p-4 border-b  flex flex-row gap-4">
+                        {page.imageUrl? (
+                          <img src={page.imageUrl} alt={page.title} className="w-20 h-20 object-cover" />
+                        ):(
+                          <img src="not-found-image.jpeg" alt={page.title} className="w-20 h-20 object-cover" />
+                        )}
+                        <div className="flex flex-col justify-center">
+                          <h3 className="text-xl font-bold">{page.title}</h3>
+                          
+                          <p className="text-3 font-bold">{page.description}</p>
+                          
+                        </div>
+                      </div>
+                      </a>
+                  ))}
                 </div>
               </div>
             </div>
