@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/cache"
 	"github.com/DerwinRustanly/Tubes2_JuBender/backend/routes"
@@ -20,7 +22,10 @@ func setupRoute(router *gin.Engine) {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	startLoad := time.Now()
 	cache.InitGlobalCache(true)
+	timeLoad := time.Since(startLoad)
+	fmt.Println("[CACHE-log] Cache loaded, time:", timeLoad)
 	router := gin.Default()
 	setupRoute(router)
 	router.Run(":8080")
