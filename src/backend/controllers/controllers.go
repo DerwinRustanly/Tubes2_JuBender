@@ -59,7 +59,9 @@ func BfsController(c *gin.Context) {
 	response := wrapToResponse(bfsResult)
 	c.JSON(http.StatusOK, response)
 	fmt.Println("Total path:", len(response.Path))
-	cache.SaveCache()
+	if cache.IsWriteCache() {
+		cache.SaveCache()
+	}
 }
 
 func IdsController(c *gin.Context) {
@@ -84,5 +86,7 @@ func IdsController(c *gin.Context) {
 	response := wrapToResponse(idsResult)
 	c.JSON(http.StatusOK, response)
 	fmt.Println("Total path:", len(response.Path))
-	cache.SaveCache()
+	if cache.IsWriteCache() {
+		cache.SaveCache()
+	}
 }

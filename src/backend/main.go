@@ -23,7 +23,7 @@ func setupRoute(router *gin.Engine) {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	startLoad := time.Now()
-	cache.InitGlobalCache(true)
+	cache.InitGlobalCache(true, false)
 	timeLoad := time.Since(startLoad)
 	fmt.Println("[CACHE-log] Cache loaded, time:", timeLoad)
 	router := gin.Default()

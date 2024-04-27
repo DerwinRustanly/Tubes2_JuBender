@@ -8,14 +8,20 @@ import (
 )
 
 var GlobalCache *Cache
+var writeCache bool
 
-func InitGlobalCache(read bool) {
+func InitGlobalCache(read bool, write bool) {
 	GlobalCache = NewCache()
 	if read {
 		if err := GlobalCache.LoadFromFile("cache/cache.json"); err != nil {
 			log.Fatalf("Failed to load cache from file: %v", err)
 		}
 	}
+	writeCache = write
+}
+
+func IsWriteCache() bool {
+	return writeCache
 }
 
 type Cache struct {
