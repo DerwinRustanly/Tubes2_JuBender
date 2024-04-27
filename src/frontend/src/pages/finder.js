@@ -499,13 +499,13 @@ export default function Finder() {
                 </div>
               </div> */}
 
-              <div className="w-full p-4">
+              <div className="w-full py-10">
                 <h2 className="text-2xl font-bold mb-4">Top Shortest Paths</h2>
-                <div className="w-full flex flex-row gap-4 flex-wrap items-center justify-center">
+                <div className="w-full flex flex-row gap-4 flex-wrap items-center justify-between">
                   {doneFetchImage ? (
                     <>
                     {pageDetail.map((elmt, index) => (
-                      <div key={index} className="flex flex-col rounded-lg border w-[300px]">
+                      <div key={index} className="flex flex-col rounded-lg bg-2 w-[300px]">
                         {elmt.map((page, idx) => (
                           <a href={page.pageUrl} target="_blank" rel="noopener noreferrer" className="" key={idx}>
                             <div className="p-4 border-b flex flex-row gap-4 items-center">
@@ -523,7 +523,7 @@ export default function Finder() {
                         ))}
                       </div>
                     ))}
-                  </>
+                  </> 
                   
                   ):(
                     <>
