@@ -144,7 +144,7 @@ func wrapToArticle(parent models.Article, child []string, parentMap *map[string]
 
 func dls(startURL string, targetURL string, limit int, multiple bool, checkMap *map[string]bool, parentMap *map[string][]string, totalLinksSearched *int, totalRequest *int, cache *map[string][]string, excludeRegex *regexp.Regexp) bool {
 	if startURL == targetURL {
-		(*parentMap)[targetURL] = []string{startURL}
+		(*parentMap)[targetURL] = []string{""}
 		*totalLinksSearched = 1
 		return true
 	}

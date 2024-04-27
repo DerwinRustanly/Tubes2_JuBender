@@ -59,7 +59,7 @@ func HandleBFS(startTitle string, targetTitle string, multiple bool) map[string]
 
 func bfs(startURL string, targetURL string, multiple bool, parentMap *map[string][]string, cache *map[string][]string, totalLinksSearched *int, totalRequest *int) {
 	if startURL == targetURL {
-		(*parentMap)[targetURL] = []string{startURL}
+		(*parentMap)[targetURL] = []string{""}
 		*totalLinksSearched = 1
 		return
 	}
