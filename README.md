@@ -2,7 +2,7 @@
 <h1 align="center">  Pemanfaatan Algoritma BFS dan IDS dalam Permainan WikiRace </h1>
 
 ## Identitas Pengembang Program
-### **Kelompok 7:  TheYuds**
+### **Kelompok 21 JuBender**
 |   NIM    |                  Nama                  |
 | :------: | :------------------------------------: |
 | 13522055 |            Benardo             |
@@ -24,13 +24,17 @@ Repositori ini berisi implementasi algoritma BFS (Breadth-First Search) dan (Ite
     git clone https://github.com/DerwinRustanly/Tubes2_JuBender.git
     ```
 
+2. Pengguna dapat mengunduh cache yang disediakan pada tautan google drive berikut untuk mempercepat hasil pencarian, kemudian pengguna menyimpan file cache.json pada folder src/backend/cache 
+    ```
+    https://bit.ly/cacheJuBender
+    ```
 
-2.  Jalankan perintah berikut pada terminal untuk menjalankan website
+3.  Jalankan perintah berikut pada terminal untuk menjalankan website
     ```
     docker-compose up --build
     ```
 
-3. Jalankan browser dan buka laman untuk menjalankan website
+4. Jalankan browser dan buka laman untuk menjalankan website
     ```
     localhost:3000
     ```
